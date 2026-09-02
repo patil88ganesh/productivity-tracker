@@ -1,0 +1,49 @@
+name: Build macOS
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "macos/**"
+      - "browser-extension/**"
+      - "VERSION"
+      - ".github/workflows/build-macos.yml"
+  pull_request:
+    paths:
+      - "macos/**"
+      - "browser-extension/**"
+      - "VERSION"
+      - ".github/workflows/build-macos.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: macOS ${{ matrix.asset_architecture }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - build_architecture: arm64
+            asset_architecture: arm64
+            runner: macos-15
+          - build_architecture: x64
+            asset_architecture: x64
+            runner: macos-15-intel
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Build and package
+        run: bash ./macos/build-package.sh "${{ matrix.build_architecture }}"
+
+      - name: Upload app bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: ProductivityTracker-macOS-${{ matrix.asset_architecture }}
+          path: dist/macos/ProductivityTracker-macOS-${{ matrix.asset_architecture }}.app.zip
+          if-no-files-found: error

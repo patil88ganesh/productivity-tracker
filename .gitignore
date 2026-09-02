@@ -3,6 +3,7 @@
 **/obj/
 artifacts/
 dist/
+.macos-build/
 MiniStopwatch.Installer/Payload.zip
 *.user
 *.suo

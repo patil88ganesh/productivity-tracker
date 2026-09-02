@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Productivity Tracker is a compact Windows stopwatch and countdown timer with optional social-media focus protection.">
+  <meta name="description" content="Productivity Tracker is a compact Windows and macOS stopwatch and countdown timer with optional social-media focus protection.">
   <meta name="theme-color" content="#081827">
-  <meta property="og:title" content="Productivity Tracker for Windows">
-  <meta property="og:description" content="A focused timer that stays visible, stays lightweight, and does not count lock-screen time.">
+  <meta property="og:title" content="Productivity Tracker for Windows and macOS">
+  <meta property="og:description" content="A focused cross-platform timer that stays visible, stays lightweight, and does not count locked-session time.">
   <meta property="og:type" content="website">
   <meta property="og:image" content="assets/productivity-tracker.png">
   <title>Productivity Tracker — Focused time, accurately tracked</title>
@@ -35,25 +35,25 @@
       <div class="hero-copy">
         <div class="eyebrow">
           <span class="eyebrow-dot"></span>
-          Built for Windows 10 and 11
+          Version 2.5.0 for Windows and macOS
         </div>
         <h1>Focused time,<br><span>accurately tracked.</span></h1>
         <p class="hero-intro">
           A compact stopwatch and countdown timer that stays above your work,
-          pauses when Windows locks, and can optionally pause on social media.
+          pauses when your session locks, and can optionally pause on social media.
         </p>
         <div class="hero-actions">
-          <a class="button button-primary" href="https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.4.0/ProductivityTracker-Setup.exe">
+          <a class="button button-primary" href="https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.5.0/ProductivityTracker-Setup.exe">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M12 3v12m0 0 5-5m-5 5-5-5M5 19h14"/>
             </svg>
             Download for Windows
           </a>
-          <a class="button button-secondary" href="https://github.com/patil88ganesh/productivity-tracker">
-            View source
+          <a class="button button-secondary" href="#install">
+            macOS beta downloads
           </a>
         </div>
-        <p class="release-note">Version 2.4.0 · Free and open source · Per-user installation</p>
+        <p class="release-note">Version 2.5.0 · Free and open source · Windows x64 · macOS arm64 and x64</p>
       </div>
 
       <div class="hero-visual" aria-label="Interactive Productivity Tracker demonstration">
@@ -171,7 +171,7 @@
           </div>
           <span class="feature-number">04</span>
           <h3>Automatic pause protection</h3>
-          <p>Timers pause when Windows locks and can optionally pause on social media or WhatsApp Web in Edge and Chrome.</p>
+          <p>Timers pause when Windows or macOS locks and can optionally pause on social media or WhatsApp Web in Edge and Chrome.</p>
         </article>
 
         <article class="feature-card reveal">
@@ -183,7 +183,7 @@
           </div>
           <span class="feature-number">05</span>
           <h3>Impossible to miss</h3>
-          <p>When a countdown reaches zero, Productivity Tracker plays a sound and flashes the timer and taskbar.</p>
+          <p>When a countdown reaches zero, Productivity Tracker plays a sound and flashes the timer and operating-system app indicator.</p>
         </article>
 
         <article class="feature-card feature-wide reveal">
@@ -233,7 +233,7 @@
         <article class="step reveal">
           <span class="step-number">3</span>
           <h3>Trust it</h3>
-          <p>Lock-screen time is removed automatically from your session.</p>
+          <p>Locked-session time is removed automatically on Windows and macOS.</p>
         </article>
       </div>
     </section>
@@ -276,14 +276,43 @@
         <img src="assets/productivity-tracker.png" alt="Productivity Tracker icon" width="104" height="104">
         <span class="section-kicker">Ready when you are</span>
         <h2>Make every focused minute count.</h2>
-        <p>Install Productivity Tracker for your Windows account and start tracking in seconds.</p>
-        <a class="button button-primary button-large" href="https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.4.0/ProductivityTracker-Setup.exe">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M12 3v12m0 0 5-5m-5 5-5-5M5 19h14"/>
-          </svg>
-          Download Productivity Tracker
-        </a>
-        <small>Windows 10/11 · x64 · Requires .NET 8 Desktop Runtime · Optional Edge/Chrome extension</small>
+        <p>Choose the build for your computer. Focus Protection remains optional on every platform.</p>
+        <div class="download-grid">
+          <article class="download-card">
+            <span class="platform-label">Windows</span>
+            <h3>Windows 10/11</h3>
+            <p>x64 per-user installer</p>
+            <a class="button button-primary" href="https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.5.0/ProductivityTracker-Setup.exe">
+              Download Windows
+            </a>
+            <small>Requires .NET 8 Desktop Runtime</small>
+          </article>
+          <article class="download-card">
+            <span class="platform-label beta">macOS beta</span>
+            <h3>Apple silicon</h3>
+            <p>Native arm64 AppKit app</p>
+            <a class="button button-primary" href="https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.5.0/ProductivityTracker-macOS-arm64.app.zip">
+              Download arm64
+            </a>
+            <small>macOS 12 or later</small>
+          </article>
+          <article class="download-card">
+            <span class="platform-label beta">macOS beta</span>
+            <h3>Intel Mac</h3>
+            <p>Native x64 AppKit app</p>
+            <a class="button button-primary" href="https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.5.0/ProductivityTracker-macOS-x64.app.zip">
+              Download x64
+            </a>
+            <small>macOS 12 or later</small>
+          </article>
+        </div>
+        <div class="gatekeeper-note">
+          <strong>macOS beta notice:</strong>
+          The app is ad-hoc signed and not notarized. Move it to Applications and try opening it
+          once. On macOS 15 or later, go to <b>System Settings &gt; Privacy &amp; Security</b>,
+          click <b>Open Anyway</b> for Productivity Tracker, then confirm <b>Open</b>. On older
+          macOS versions, Control-click or right-click the app and choose <b>Open</b>.
+        </div>
       </div>
     </section>
   </main>

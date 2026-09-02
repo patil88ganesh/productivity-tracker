@@ -967,7 +967,7 @@ kbd {
 .download-content {
   position: relative;
   z-index: 2;
-  max-width: 680px;
+  max-width: 1000px;
   margin: 0 auto;
 }
 
@@ -979,6 +979,75 @@ kbd {
 .download-content p {
   max-width: 520px;
   margin: 0 auto 28px;
+}
+
+.download-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 32px;
+  text-align: left;
+}
+
+.download-card {
+  padding: 24px;
+  border: 1px solid rgba(151, 203, 240, 0.16);
+  border-radius: 15px;
+  background: rgba(5, 21, 34, 0.52);
+}
+
+.download-card h3 {
+  margin: 13px 0 2px;
+  font-size: 1.25rem;
+}
+
+.download-card p {
+  margin: 0 0 20px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.download-card .button {
+  width: 100%;
+}
+
+.download-card small {
+  margin-top: 12px;
+}
+
+.platform-label {
+  display: inline-block;
+  padding: 4px 9px;
+  color: #9bd5fb;
+  border: 1px solid rgba(116, 198, 251, 0.19);
+  border-radius: 999px;
+  background: rgba(39, 136, 208, 0.11);
+  font-size: 0.65rem;
+  font-weight: 750;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.platform-label.beta {
+  color: #ffd28a;
+  border-color: rgba(255, 190, 83, 0.2);
+  background: rgba(255, 174, 41, 0.09);
+}
+
+.gatekeeper-note {
+  max-width: 820px;
+  margin: 24px auto 0;
+  padding: 16px 18px;
+  color: #9eb3c4;
+  border: 1px solid rgba(255, 190, 83, 0.17);
+  border-radius: 12px;
+  background: rgba(255, 174, 41, 0.055);
+  font-size: 0.76rem;
+  text-align: left;
+}
+
+.gatekeeper-note strong {
+  color: #ffd28a;
 }
 
 .button-large {
@@ -1073,6 +1142,13 @@ footer a:hover {
 
   .controls-copy {
     max-width: 600px;
+  }
+
+  .download-grid {
+    grid-template-columns: 1fr;
+    max-width: 620px;
+    margin-right: auto;
+    margin-left: auto;
   }
 }
 
