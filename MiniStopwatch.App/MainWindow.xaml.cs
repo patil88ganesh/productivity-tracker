@@ -53,7 +53,13 @@ public partial class MainWindow : Window
     private readonly SolidColorBrush hoverBackgroundBrush =
         new(Color.FromRgb(0xF1, 0xF9, 0xFF));
     private readonly SolidColorBrush completionBrush =
-        new(Color.FromRgb(0xE5, 0x39, 0x35));
+        new(Color.FromRgb(0xFF, 0x17, 0x44));
+    private readonly SolidColorBrush automaticPauseBrush =
+        new(Color.FromRgb(0xFF, 0x8F, 0x00));
+    private readonly SolidColorBrush runningBrush =
+        new(Color.FromRgb(0x00, 0xC8, 0x53));
+    private readonly SolidColorBrush pausedBrush =
+        new(Color.FromRgb(0x59, 0x63, 0x6E));
     private HwndSource? windowSource;
     private int completionFlashStep;
     private bool isCompletionFlashing;
@@ -333,13 +339,15 @@ public partial class MainWindow : Window
 
         if (!isCompletionFlashing)
         {
-            StatusIndicator.Fill = tracker.IsTimerCompleted
+            var statusBrush = tracker.IsTimerCompleted
                 ? completionBrush
                 : tracker.IsAutomaticallyPaused
-                    ? new SolidColorBrush(Color.FromRgb(0xF0, 0x9A, 0x2A))
+                    ? automaticPauseBrush
                 : tracker.IsRunning
-                    ? new SolidColorBrush(Color.FromRgb(67, 160, 71))
-                    : new SolidColorBrush(Color.FromRgb(139, 150, 158));
+                    ? runningBrush
+                    : pausedBrush;
+            StatusIndicator.Fill = statusBrush;
+            StatusIndicatorShadow.Color = statusBrush.Color;
         }
 
         StatusIndicator.ToolTip = tracker.IsAutomaticallyPaused
@@ -397,7 +405,8 @@ public partial class MainWindow : Window
         if (!isHighlighted)
         {
             ApplyBaseAppearance();
-            StatusIndicator.Fill = new SolidColorBrush(Color.FromRgb(139, 150, 158));
+            StatusIndicator.Fill = pausedBrush;
+            StatusIndicatorShadow.Color = pausedBrush.Color;
             return;
         }
 
@@ -408,6 +417,7 @@ public partial class MainWindow : Window
         TrackerShadow.BlurRadius = 15;
         TrackerShadow.Opacity = 0.42;
         StatusIndicator.Fill = completionBrush;
+        StatusIndicatorShadow.Color = completionBrush.Color;
     }
 
     private void StopCompletionAlert()
@@ -613,7 +623,7 @@ public partial class MainWindow : Window
         var width = ActualWidth > 0 ? ActualWidth : Width;
         var height = ActualHeight > 0 ? ActualHeight : Height;
         var fontSize = Math.Clamp(Math.Min(height * 0.48, width * 0.16), 20, 96);
-        var indicatorSize = Math.Clamp(fontSize * 0.22, 6, 18);
+        var indicatorSize = Math.Clamp(fontSize * 0.28, 8, 22);
 
         TimeDisplay.FontSize = fontSize;
         StatusIndicator.Width = indicatorSize;

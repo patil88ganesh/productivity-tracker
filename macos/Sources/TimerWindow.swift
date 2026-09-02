@@ -6,7 +6,12 @@ final class TimerDisplayView: NSView {
     var displayText = "00:00:00" {
         didSet { needsDisplay = true }
     }
-    var statusColor = NSColor.systemGray {
+    var statusColor = NSColor(
+        calibratedRed: 0.35,
+        green: 0.39,
+        blue: 0.43,
+        alpha: 1
+    ) {
         didSet { needsDisplay = true }
     }
     var completionHighlighted = false {
@@ -114,15 +119,26 @@ final class TimerDisplayView: NSView {
         backgroundPath.lineWidth = lineWidth
         backgroundPath.stroke()
 
-        let indicatorSize = min(max(fontSize * 0.22, 6), 18)
+        let indicatorSize = min(max(fontSize * 0.28, 8), 22)
         let indicatorRect = NSRect(
             x: max(11, bounds.height * 0.17),
             y: (bounds.height - indicatorSize) / 2,
             width: indicatorSize,
             height: indicatorSize
         )
+        let indicatorPath = NSBezierPath(ovalIn: indicatorRect)
+        NSGraphicsContext.saveGraphicsState()
+        let indicatorShadow = NSShadow()
+        indicatorShadow.shadowColor = statusColor.withAlphaComponent(0.72)
+        indicatorShadow.shadowBlurRadius = 7
+        indicatorShadow.shadowOffset = .zero
+        indicatorShadow.set()
         statusColor.setFill()
-        NSBezierPath(ovalIn: indicatorRect).fill()
+        indicatorPath.fill()
+        NSGraphicsContext.restoreGraphicsState()
+        NSColor.white.withAlphaComponent(0.92).setStroke()
+        indicatorPath.lineWidth = 1.25
+        indicatorPath.stroke()
 
         let paragraph = NSMutableParagraphStyle()
         paragraph.alignment = .center
@@ -455,19 +471,39 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
 
         if engine.isAutomaticallyPaused {
             toggleMenuItem.title = "Remain Paused"
-            displayView.statusColor = .systemOrange
+            displayView.statusColor = NSColor(
+                calibratedRed: 1,
+                green: 0.56,
+                blue: 0,
+                alpha: 1
+            )
             displayView.toolTip = "Paused automatically"
         } else if engine.isRunning {
             toggleMenuItem.title = "Pause"
-            displayView.statusColor = .systemGreen
+            displayView.statusColor = NSColor(
+                calibratedRed: 0,
+                green: 0.78,
+                blue: 0.33,
+                alpha: 1
+            )
             displayView.toolTip = "Running"
         } else if engine.isTimerCompleted {
             toggleMenuItem.title = "Restart Timer"
-            displayView.statusColor = .systemRed
+            displayView.statusColor = NSColor(
+                calibratedRed: 1,
+                green: 0.09,
+                blue: 0.27,
+                alpha: 1
+            )
             displayView.toolTip = "Timer complete"
         } else {
             toggleMenuItem.title = displayTime < 1 ? "Start" : "Resume"
-            displayView.statusColor = .systemGray
+            displayView.statusColor = NSColor(
+                calibratedRed: 0.35,
+                green: 0.39,
+                blue: 0.43,
+                alpha: 1
+            )
             displayView.toolTip = "Paused"
         }
     }

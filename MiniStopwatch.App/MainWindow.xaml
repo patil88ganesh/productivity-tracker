@@ -92,11 +92,21 @@
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
             <Ellipse x:Name="StatusIndicator"
-                     Width="6"
-                     Height="6"
-                     Fill="#8B969E"
+                     Width="8"
+                     Height="8"
+                     Fill="#59636E"
+                     Stroke="#F2FFFFFF"
+                     StrokeThickness="1.25"
                      VerticalAlignment="Center"
-                     HorizontalAlignment="Left"/>
+                     HorizontalAlignment="Left">
+                <Ellipse.Effect>
+                    <DropShadowEffect x:Name="StatusIndicatorShadow"
+                                      BlurRadius="8"
+                                      ShadowDepth="0"
+                                      Opacity="0.72"
+                                      Color="#59636E"/>
+                </Ellipse.Effect>
+            </Ellipse>
             <TextBlock x:Name="TimeDisplay"
                        Grid.Column="1"
                        Text="00:00:00"

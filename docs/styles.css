@@ -387,16 +387,18 @@ h1 span {
 }
 
 .timer-status {
-  flex: 0 0 7px;
-  width: 7px;
-  height: 7px;
+  flex: 0 0 9px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
-  background: #8b969e;
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  background: #59636e;
+  box-shadow: 0 0 7px rgba(89, 99, 110, 0.72);
 }
 
 .timer-widget.running .timer-status {
-  background: #43a047;
-  box-shadow: 0 0 0 4px rgba(67, 160, 71, 0.12);
+  background: #00c853;
+  box-shadow: 0 0 8px rgba(0, 200, 83, 0.8), 0 0 0 4px rgba(0, 200, 83, 0.18);
 }
 
 .timer-digits,
@@ -683,10 +685,12 @@ h1 span {
 }
 
 .mini-timer span {
-  width: 7px;
-  height: 7px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
-  background: #43a047;
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  background: #00c853;
+  box-shadow: 0 0 8px rgba(0, 200, 83, 0.8);
 }
 
 .mini-timer strong {
@@ -845,10 +849,12 @@ kbd {
 }
 
 .context-timer i {
-  width: 7px;
-  height: 7px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
-  background: #43a047;
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  background: #00c853;
+  box-shadow: 0 0 8px rgba(0, 200, 83, 0.8);
 }
 
 .context-timer strong {
