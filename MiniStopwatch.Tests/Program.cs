@@ -8,6 +8,11 @@ var tests = new (string Name, Action Run)[]
     ("Repeated lock notifications are harmless", RepeatedLockNotificationsAreHarmless),
     ("Reset clears elapsed time while running", ResetClearsWhileRunning),
     ("Elapsed time formats digital display", FormatsElapsedTime),
+    ("Countdown timer displays remaining time", CountdownDisplaysRemainingTime),
+    ("Countdown completion occurs once", CountdownCompletionOccursOnce),
+    ("Countdown pauses during session lock", CountdownPausesDuringSessionLock),
+    ("Completed countdown restarts on toggle", CompletedCountdownRestartsOnToggle),
+    ("Exit timer returns to stopwatch mode", ExitTimerReturnsToStopwatchMode),
 };
 
 var failures = new List<string>();
@@ -110,6 +115,81 @@ static void FormatsElapsedTime()
 {
     Equal("01:02:03", ElapsedTimeFormatter.Format(new TimeSpan(1, 2, 3)));
     Equal("27:04:05", ElapsedTimeFormatter.Format(new TimeSpan(1, 3, 4, 5)));
+}
+
+static void CountdownDisplaysRemainingTime()
+{
+    var clock = new FakeClock();
+    var tracker = new TrackingController(clock);
+
+    tracker.StartTimer(TimeSpan.FromMinutes(25));
+    clock.Advance(TimeSpan.FromMinutes(4));
+
+    True(tracker.IsTimerMode);
+    True(tracker.IsRunning);
+    Equal(TimeSpan.FromMinutes(21), tracker.DisplayTime);
+}
+
+static void CountdownCompletionOccursOnce()
+{
+    var clock = new FakeClock();
+    var tracker = new TrackingController(clock);
+
+    tracker.StartTimer(TimeSpan.FromSeconds(3));
+    clock.Advance(TimeSpan.FromSeconds(3));
+
+    True(tracker.Update());
+    False(tracker.Update());
+    True(tracker.IsTimerCompleted);
+    False(tracker.IsRunning);
+    Equal(TimeSpan.Zero, tracker.DisplayTime);
+}
+
+static void CountdownPausesDuringSessionLock()
+{
+    var clock = new FakeClock();
+    var tracker = new TrackingController(clock);
+
+    tracker.StartTimer(TimeSpan.FromSeconds(20));
+    clock.Advance(TimeSpan.FromSeconds(5));
+    tracker.OnSessionLocked();
+    clock.Advance(TimeSpan.FromMinutes(2));
+    Equal(TimeSpan.FromSeconds(15), tracker.DisplayTime);
+
+    tracker.OnSessionUnlocked();
+    clock.Advance(TimeSpan.FromSeconds(4));
+
+    Equal(TimeSpan.FromSeconds(11), tracker.DisplayTime);
+    True(tracker.IsRunning);
+}
+
+static void CompletedCountdownRestartsOnToggle()
+{
+    var clock = new FakeClock();
+    var tracker = new TrackingController(clock);
+
+    tracker.StartTimer(TimeSpan.FromSeconds(5));
+    clock.Advance(TimeSpan.FromSeconds(5));
+    tracker.Update();
+    tracker.Toggle();
+
+    True(tracker.IsRunning);
+    False(tracker.IsTimerCompleted);
+    Equal(TimeSpan.FromSeconds(5), tracker.DisplayTime);
+}
+
+static void ExitTimerReturnsToStopwatchMode()
+{
+    var clock = new FakeClock();
+    var tracker = new TrackingController(clock);
+
+    tracker.StartTimer(TimeSpan.FromMinutes(10));
+    tracker.ExitTimer();
+    tracker.Toggle();
+    clock.Advance(TimeSpan.FromSeconds(7));
+
+    False(tracker.IsTimerMode);
+    Equal(TimeSpan.FromSeconds(7), tracker.DisplayTime);
 }
 
 static void Equal<T>(T expected, T actual)

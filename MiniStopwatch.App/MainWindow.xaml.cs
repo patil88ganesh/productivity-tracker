@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.Media;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -20,11 +21,19 @@ public partial class MainWindow : Window
     private const string SettingsRegistryPath = @"Software\ProductivityTracker";
     private const string LegacySettingsRegistryPath = @"Software\MiniStopwatch";
     private const string OpacityRegistryValue = "OpacityPercent";
+    private const uint FlashWindowAll = 0x00000003;
 
-    private readonly StopwatchController stopwatch = new(new SystemMonotonicClock());
+    private readonly TrackingController tracker = new(new SystemMonotonicClock());
     private readonly DispatcherTimer displayTimer;
+    private readonly DispatcherTimer completionFlashTimer;
     private readonly MenuItem[] opacityMenuItems;
+    private readonly SolidColorBrush normalBorderBrush =
+        new(Color.FromArgb(0x7F, 0x9A, 0xA0, 0xA5));
+    private readonly SolidColorBrush completionBrush =
+        new(Color.FromRgb(0xE5, 0x39, 0x35));
     private HwndSource? windowSource;
+    private int completionFlashStep;
+    private bool isCompletionFlashing;
 
     public MainWindow()
     {
@@ -46,6 +55,12 @@ public partial class MainWindow : Window
         };
         displayTimer.Tick += (_, _) => RefreshDisplay();
         displayTimer.Start();
+
+        completionFlashTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(250),
+        };
+        completionFlashTimer.Tick += CompletionFlashTimer_Tick;
         RefreshDisplay();
     }
 
@@ -64,6 +79,7 @@ public partial class MainWindow : Window
     private void Window_Closed(object? sender, EventArgs e)
     {
         displayTimer.Stop();
+        completionFlashTimer.Stop();
 
         var handle = new WindowInteropHelper(this).Handle;
         if (handle != IntPtr.Zero)
@@ -89,11 +105,11 @@ public partial class MainWindow : Window
         switch (wParam.ToInt32())
         {
             case WtsSessionLock:
-                stopwatch.OnSessionLocked();
+                tracker.OnSessionLocked();
                 RefreshDisplay();
                 break;
             case WtsSessionUnlock:
-                stopwatch.OnSessionUnlocked();
+                tracker.OnSessionUnlocked();
                 RefreshDisplay();
                 break;
         }
@@ -105,8 +121,7 @@ public partial class MainWindow : Window
     {
         if (e.ChangedButton == MouseButton.Middle)
         {
-            stopwatch.Toggle();
-            RefreshDisplay();
+            ToggleTracking();
             e.Handled = true;
             return;
         }
@@ -119,13 +134,37 @@ public partial class MainWindow : Window
 
     private void ToggleMenuItem_Click(object sender, RoutedEventArgs e)
     {
-        stopwatch.Toggle();
-        RefreshDisplay();
+        ToggleTracking();
     }
 
     private void ResetMenuItem_Click(object sender, RoutedEventArgs e)
     {
-        stopwatch.Reset();
+        StopCompletionAlert();
+        tracker.Reset();
+        RefreshDisplay();
+    }
+
+    private void TimerMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new TimerDialog
+        {
+            Owner = this,
+        };
+
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        StopCompletionAlert();
+        tracker.StartTimer(dialog.Duration);
+        RefreshDisplay();
+    }
+
+    private void ExitTimerMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        StopCompletionAlert();
+        tracker.ExitTimer();
         RefreshDisplay();
     }
 
@@ -162,11 +201,97 @@ public partial class MainWindow : Window
 
     private void RefreshDisplay()
     {
-        TimeDisplay.Text = ElapsedTimeFormatter.Format(stopwatch.Elapsed);
-        ToggleMenuItem.Header = stopwatch.IsRunning ? "Stop" : "Start";
-        StatusIndicator.Fill = stopwatch.IsRunning
-            ? new SolidColorBrush(Color.FromRgb(67, 160, 71))
+        if (tracker.Update())
+        {
+            StartCompletionAlert();
+        }
+
+        TimeDisplay.Text = ElapsedTimeFormatter.Format(tracker.DisplayTime);
+        ExitTimerMenuItem.Visibility = tracker.IsTimerMode
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+        ToggleMenuItem.Header = tracker.IsTimerMode
+            ? tracker.IsRunning
+                ? "Pause Timer"
+                : tracker.IsTimerCompleted
+                    ? "Restart Timer"
+                    : "Resume Timer"
+            : tracker.IsRunning
+                ? "Stop"
+                : "Start";
+
+        TimeDisplay.Foreground = tracker.IsTimerCompleted
+            ? completionBrush
+            : new SolidColorBrush(Color.FromRgb(0x72, 0x7D, 0x86));
+
+        if (!isCompletionFlashing)
+        {
+            StatusIndicator.Fill = tracker.IsTimerCompleted
+                ? completionBrush
+                : tracker.IsRunning
+                    ? new SolidColorBrush(Color.FromRgb(67, 160, 71))
+                    : new SolidColorBrush(Color.FromRgb(139, 150, 158));
+        }
+    }
+
+    private void ToggleTracking()
+    {
+        if (tracker.IsTimerCompleted)
+        {
+            StopCompletionAlert();
+        }
+
+        tracker.Toggle();
+        RefreshDisplay();
+    }
+
+    private void StartCompletionAlert()
+    {
+        SystemSounds.Exclamation.Play();
+        isCompletionFlashing = true;
+        completionFlashStep = 0;
+        ApplyCompletionFlash(isHighlighted: true);
+        completionFlashTimer.Start();
+
+        var flashInfo = new FlashWindowInfo
+        {
+            Size = (uint)Marshal.SizeOf<FlashWindowInfo>(),
+            WindowHandle = new WindowInteropHelper(this).Handle,
+            Flags = FlashWindowAll,
+            Count = 5,
+            Timeout = 0,
+        };
+        FlashWindowEx(ref flashInfo);
+    }
+
+    private void CompletionFlashTimer_Tick(object? sender, EventArgs e)
+    {
+        completionFlashStep++;
+        if (completionFlashStep >= 8)
+        {
+            StopCompletionAlert();
+            RefreshDisplay();
+            return;
+        }
+
+        ApplyCompletionFlash(completionFlashStep % 2 == 0);
+    }
+
+    private void ApplyCompletionFlash(bool isHighlighted)
+    {
+        TrackerBorder.BorderBrush = isHighlighted ? completionBrush : normalBorderBrush;
+        StatusIndicator.Fill = isHighlighted
+            ? completionBrush
             : new SolidColorBrush(Color.FromRgb(139, 150, 158));
+    }
+
+    private void StopCompletionAlert()
+    {
+        completionFlashTimer.Stop();
+        isCompletionFlashing = false;
+        completionFlashStep = 0;
+        TrackerBorder.BorderBrush = normalBorderBrush;
     }
 
     private void SetOpacity(int opacityPercent, bool persist)
@@ -212,4 +337,18 @@ public partial class MainWindow : Window
     [DllImport("Wtsapi32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool WTSUnRegisterSessionNotification(IntPtr windowHandle);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool FlashWindowEx(ref FlashWindowInfo flashInfo);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct FlashWindowInfo
+    {
+        public uint Size;
+        public IntPtr WindowHandle;
+        public uint Flags;
+        public uint Count;
+        public uint Timeout;
+    }
 }

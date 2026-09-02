@@ -23,6 +23,12 @@
         <ContextMenu>
             <MenuItem x:Name="ToggleMenuItem" Header="Start" Click="ToggleMenuItem_Click"/>
             <MenuItem Header="Reset" Click="ResetMenuItem_Click"/>
+            <MenuItem Header="Set Timer..." Click="TimerMenuItem_Click"/>
+            <MenuItem x:Name="ExitTimerMenuItem"
+                      Header="Exit Timer"
+                      Visibility="Collapsed"
+                      Click="ExitTimerMenuItem_Click"/>
+            <Separator/>
             <MenuItem Header="Transparency">
                 <MenuItem x:Name="Opacity40MenuItem"
                           Header="40%"
@@ -50,12 +56,12 @@
                           IsCheckable="True"
                           Click="OpacityMenuItem_Click"/>
             </MenuItem>
-            <Separator/>
             <MenuItem Header="Minimize" Click="MinimizeMenuItem_Click"/>
             <MenuItem Header="Exit" Click="ExitMenuItem_Click"/>
         </ContextMenu>
     </Window.ContextMenu>
-    <Border CornerRadius="9"
+    <Border x:Name="TrackerBorder"
+            CornerRadius="9"
             BorderThickness="1"
             BorderBrush="#7F9AA0A5"
             Background="White"
