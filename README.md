@@ -2,6 +2,10 @@
 
 A compact, semi-transparent, always-on-top productivity time tracker for Windows.
 
+## Website
+
+Visit the [Productivity Tracker website](https://patil88ganesh.github.io/productivity-tracker/) for features, controls, and downloads.
+
 ## Controls
 
 - Middle-click the timer to start or stop.

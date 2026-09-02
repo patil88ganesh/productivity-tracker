@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Productivity Tracker is a compact, transparent Windows stopwatch that pauses while your computer is locked.">
+  <meta name="theme-color" content="#081827">
+  <meta property="og:title" content="Productivity Tracker for Windows">
+  <meta property="og:description" content="A focused timer that stays visible, stays lightweight, and does not count lock-screen time.">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="assets/productivity-tracker.png">
+  <title>Productivity Tracker — Focused time, accurately tracked</title>
+  <link rel="icon" href="assets/productivity-tracker.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="page-glow page-glow-one"></div>
+  <div class="page-glow page-glow-two"></div>
+
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="Productivity Tracker home">
+      <img src="assets/productivity-tracker.png" alt="" width="42" height="42">
+      <span>Productivity Tracker</span>
+    </a>
+    <nav aria-label="Main navigation">
+      <a href="#features">Features</a>
+      <a href="#controls">Controls</a>
+      <a href="#install">Install</a>
+      <a class="nav-github" href="https://github.com/patil88ganesh/productivity-tracker">GitHub</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="hero-copy">
+        <div class="eyebrow">
+          <span class="eyebrow-dot"></span>
+          Built for Windows 10 and 11
+        </div>
+        <h1>Focused time,<br><span>accurately tracked.</span></h1>
+        <p class="hero-intro">
+          A compact, transparent stopwatch that stays above your work,
+          pauses when Windows locks, and resumes when you return.
+        </p>
+        <div class="hero-actions">
+          <a class="button button-primary" href="https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.0.0/ProductivityTracker-Setup.exe">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 3v12m0 0 5-5m-5 5-5-5M5 19h14"/>
+            </svg>
+            Download for Windows
+          </a>
+          <a class="button button-secondary" href="https://github.com/patil88ganesh/productivity-tracker">
+            View source
+          </a>
+        </div>
+        <p class="release-note">Version 2.0.0 · Free and open source · Per-user installation</p>
+      </div>
+
+      <div class="hero-visual" aria-label="Interactive Productivity Tracker demonstration">
+        <div class="visual-orbit orbit-one"></div>
+        <div class="visual-orbit orbit-two"></div>
+        <div class="desktop-card">
+          <div class="desktop-topbar">
+            <span></span><span></span><span></span>
+            <small>YOUR DESKTOP</small>
+          </div>
+          <div class="desktop-work">
+            <div class="work-sidebar">
+              <i></i><i></i><i></i><i></i>
+            </div>
+            <div class="work-content">
+              <div class="work-heading"></div>
+              <div class="work-line long"></div>
+              <div class="work-line"></div>
+              <div class="work-panels"><span></span><span></span></div>
+            </div>
+
+            <div class="timer-wrap">
+              <button class="timer-widget running" id="demoTimer" type="button" aria-label="Start or stop demo timer">
+                <span class="timer-status"></span>
+                <span class="timer-digits" id="demoTime">00:18:42</span>
+              </button>
+              <div class="timer-hint">
+                <span class="mouse-icon"><i></i></span>
+                Middle-click to start or stop
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="floating-card lock-card">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="5" y="10" width="14" height="11" rx="3"/>
+            <path d="M8 10V7a4 4 0 0 1 8 0v3"/>
+          </svg>
+          <div><strong>Lock-aware</strong><span>Paused automatically</span></div>
+        </div>
+
+        <div class="floating-card focus-card">
+          <span class="focus-check">✓</span>
+          <div><strong>18m 42s</strong><span>Focused session</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="trust-strip" aria-label="Product qualities">
+      <span><i>✓</i> No administrator rights</span>
+      <span><i>✓</i> No account required</span>
+      <span><i>✓</i> No background cloud service</span>
+      <span><i>✓</i> Open source</span>
+    </section>
+
+    <section class="section" id="features">
+      <div class="section-heading reveal">
+        <span class="section-kicker">Designed to stay out of your way</span>
+        <h2>Everything a focused timer needs.<br>Nothing it doesn't.</h2>
+        <p>Productivity Tracker keeps the controls simple while handling the details that ordinary stopwatches miss.</p>
+      </div>
+
+      <div class="feature-grid">
+        <article class="feature-card feature-large reveal">
+          <div class="feature-icon blue">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="3" y="5" width="18" height="14" rx="4"/>
+              <path d="M8 9h8M8 13h5"/>
+            </svg>
+          </div>
+          <div>
+            <span class="feature-number">01</span>
+            <h3>Compact by design</h3>
+            <p>The small always-on-top display remains visible without covering the work that matters.</p>
+          </div>
+          <div class="mini-timer">
+            <span></span>
+            <strong>01:24:37</strong>
+          </div>
+        </article>
+
+        <article class="feature-card reveal">
+          <div class="feature-icon green">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 3v3M8 3h8"/>
+              <circle cx="12" cy="14" r="7"/>
+              <path d="M12 10v4l3 2"/>
+            </svg>
+          </div>
+          <span class="feature-number">02</span>
+          <h3>Middle-click control</h3>
+          <p>Start and stop instantly with the mouse-wheel button. No tiny controls to find.</p>
+        </article>
+
+        <article class="feature-card reveal">
+          <div class="feature-icon violet">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="5" y="10" width="14" height="11" rx="3"/>
+              <path d="M8 10V7a4 4 0 0 1 8 0v3"/>
+            </svg>
+          </div>
+          <span class="feature-number">03</span>
+          <h3>Smart lock handling</h3>
+          <p>Running timers pause when Windows locks and resume after unlock, excluding time away.</p>
+        </article>
+
+        <article class="feature-card feature-wide reveal">
+          <div class="feature-copy">
+            <div class="feature-icon amber">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 3a9 9 0 1 0 9 9"/>
+                <path d="M12 7v5l3 2M17 3v5h5"/>
+              </svg>
+            </div>
+            <span class="feature-number">04</span>
+            <h3>Your display, your way</h3>
+            <p>Choose from five transparency levels, drag the timer anywhere, or minimize it to the taskbar.</p>
+          </div>
+          <div class="opacity-demo">
+            <span class="opacity-label">TRANSPARENCY</span>
+            <div class="opacity-options">
+              <i style="--opacity:.4">40</i>
+              <i style="--opacity:.55">55</i>
+              <i style="--opacity:.7">70</i>
+              <i class="selected" style="--opacity:.85">85</i>
+              <i style="--opacity:1">100</i>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section workflow-section">
+      <div class="section-heading compact reveal">
+        <span class="section-kicker">A natural part of your workflow</span>
+        <h2>Three actions. Zero friction.</h2>
+      </div>
+      <div class="steps">
+        <article class="step reveal">
+          <span class="step-number">1</span>
+          <div class="step-line"></div>
+          <h3>Place it</h3>
+          <p>Drag the timer to any convenient corner of your screen.</p>
+        </article>
+        <article class="step reveal">
+          <span class="step-number">2</span>
+          <div class="step-line"></div>
+          <h3>Track it</h3>
+          <p>Middle-click whenever focused work begins or ends.</p>
+        </article>
+        <article class="step reveal">
+          <span class="step-number">3</span>
+          <h3>Trust it</h3>
+          <p>Lock-screen time is removed automatically from your session.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section controls-section" id="controls">
+      <div class="controls-copy reveal">
+        <span class="section-kicker">Simple controls</span>
+        <h2>Everything is one click away.</h2>
+        <p>The timer surface is the primary control. Right-click only when you need additional options.</p>
+        <div class="control-list">
+          <div><kbd>Middle click</kbd><span>Start or stop</span></div>
+          <div><kbd>Left drag</kbd><span>Reposition</span></div>
+          <div><kbd>Right click</kbd><span>Open options</span></div>
+        </div>
+      </div>
+
+      <div class="context-demo reveal">
+        <div class="context-timer"><i></i><strong>00:38:12</strong></div>
+        <div class="context-menu">
+          <div><span>Start / Stop</span><kbd>Wheel</kbd></div>
+          <div><span>Reset</span></div>
+          <div class="submenu-row"><span>Transparency</span><b>›</b></div>
+          <div><span>Minimize</span></div>
+          <hr>
+          <div><span>Exit</span></div>
+        </div>
+        <div class="transparency-menu">
+          <span>40%</span><span>55%</span><span>70%</span>
+          <span class="active">✓&nbsp; 85%</span><span>100%</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="download-section" id="install">
+      <div class="download-glow"></div>
+      <div class="download-content reveal">
+        <img src="assets/productivity-tracker.png" alt="Productivity Tracker icon" width="104" height="104">
+        <span class="section-kicker">Ready when you are</span>
+        <h2>Make every focused minute count.</h2>
+        <p>Install Productivity Tracker for your Windows account and start tracking in seconds.</p>
+        <a class="button button-primary button-large" href="https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.0.0/ProductivityTracker-Setup.exe">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 3v12m0 0 5-5m-5 5-5-5M5 19h14"/>
+          </svg>
+          Download Productivity Tracker
+        </a>
+        <small>Windows 10/11 · x64 · Requires .NET 8 Desktop Runtime</small>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <a class="brand footer-brand" href="#top">
+      <img src="assets/productivity-tracker.png" alt="" width="34" height="34">
+      <span>Productivity Tracker</span>
+    </a>
+    <p>Small timer. Honest time.</p>
+    <div>
+      <a href="https://github.com/patil88ganesh/productivity-tracker">Source code</a>
+      <a href="https://github.com/patil88ganesh/productivity-tracker/releases">Releases</a>
+      <span>© <span id="year">2026</span></span>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
