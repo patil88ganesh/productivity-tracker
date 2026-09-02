@@ -311,7 +311,8 @@ public partial class MainWindow : Window
             StartCompletionAlert();
         }
 
-        TimeDisplay.Text = ElapsedTimeFormatter.Format(tracker.DisplayTime);
+        var displayTime = tracker.DisplayTime;
+        TimeDisplay.Text = ElapsedTimeFormatter.Format(displayTime);
         ExitTimerMenuItem.Visibility = tracker.IsTimerMode
             ? Visibility.Visible
             : Visibility.Collapsed;
@@ -322,7 +323,9 @@ public partial class MainWindow : Window
                 ? "Pause"
                 : tracker.IsTimerCompleted
                     ? "Restart Timer"
-                    : "Resume";
+                    : displayTime < TimeSpan.FromSeconds(1)
+                        ? "Start"
+                        : "Resume";
 
         TimeDisplay.Foreground = tracker.IsTimerCompleted
             ? completionBrush

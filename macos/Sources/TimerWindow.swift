@@ -448,7 +448,8 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
             startCompletionAlert()
         }
 
-        displayView.displayText = formatDuration(engine.displayTime)
+        let displayTime = engine.displayTime
+        displayView.displayText = formatDuration(displayTime)
         displayView.isCompleted = engine.isTimerCompleted
         exitTimerMenuItem.isHidden = !engine.isTimerMode
 
@@ -465,7 +466,7 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
             displayView.statusColor = .systemRed
             displayView.toolTip = "Timer complete"
         } else {
-            toggleMenuItem.title = "Resume"
+            toggleMenuItem.title = displayTime < 1 ? "Start" : "Resume"
             displayView.statusColor = .systemGray
             displayView.toolTip = "Paused"
         }
