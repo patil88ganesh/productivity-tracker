@@ -453,11 +453,11 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
         exitTimerMenuItem.isHidden = !engine.isTimerMode
 
         if engine.isAutomaticallyPaused {
-            toggleMenuItem.title = "Stop (Auto-paused)"
+            toggleMenuItem.title = "Remain Paused"
             displayView.statusColor = .systemOrange
             displayView.toolTip = "Paused automatically"
         } else if engine.isRunning {
-            toggleMenuItem.title = engine.isTimerMode ? "Pause Timer" : "Stop"
+            toggleMenuItem.title = "Pause"
             displayView.statusColor = .systemGreen
             displayView.toolTip = "Running"
         } else if engine.isTimerCompleted {
@@ -465,9 +465,9 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
             displayView.statusColor = .systemRed
             displayView.toolTip = "Timer complete"
         } else {
-            toggleMenuItem.title = engine.isTimerMode ? "Resume Timer" : "Start"
+            toggleMenuItem.title = "Resume"
             displayView.statusColor = .systemGray
-            displayView.toolTip = "Stopped"
+            displayView.toolTip = "Paused"
         }
     }
 

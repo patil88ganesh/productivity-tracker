@@ -20,7 +20,7 @@
         SourceInitialized="Window_SourceInitialized">
     <Window.ContextMenu>
         <ContextMenu>
-            <MenuItem x:Name="ToggleMenuItem" Header="Start" Click="ToggleMenuItem_Click"/>
+            <MenuItem x:Name="ToggleMenuItem" Header="Resume" Click="ToggleMenuItem_Click"/>
             <MenuItem Header="Reset" Click="ResetMenuItem_Click"/>
             <MenuItem Header="Add and Start..." Click="AddAndStartMenuItem_Click"/>
             <MenuItem Header="Set Timer..." Click="TimerMenuItem_Click"/>

@@ -316,19 +316,13 @@ public partial class MainWindow : Window
             ? Visibility.Visible
             : Visibility.Collapsed;
 
-        ToggleMenuItem.Header = tracker.IsTimerMode
-            ? tracker.IsAutomaticallyPaused
-                ? "Stop (Auto-paused)"
-                : tracker.IsRunning
-                ? "Pause Timer"
+        ToggleMenuItem.Header = tracker.IsAutomaticallyPaused
+            ? "Remain Paused"
+            : tracker.IsRunning
+                ? "Pause"
                 : tracker.IsTimerCompleted
                     ? "Restart Timer"
-                    : "Resume Timer"
-            : tracker.IsAutomaticallyPaused
-                ? "Stop (Auto-paused)"
-                : tracker.IsRunning
-                ? "Stop"
-                : "Start";
+                    : "Resume";
 
         TimeDisplay.Foreground = tracker.IsTimerCompleted
             ? completionBrush
@@ -349,7 +343,7 @@ public partial class MainWindow : Window
             ? "Paused automatically while a distracting site is active"
             : tracker.IsRunning
                 ? "Running"
-                : "Stopped";
+                : "Paused";
     }
 
     private void ToggleTracking()
