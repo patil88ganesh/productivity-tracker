@@ -13,6 +13,8 @@ var tests = new (string Name, Action Run)[]
     ("Countdown pauses during session lock", CountdownPausesDuringSessionLock),
     ("Completed countdown restarts on toggle", CompletedCountdownRestartsOnToggle),
     ("Exit timer returns to stopwatch mode", ExitTimerReturnsToStopwatchMode),
+    ("Resize hit test detects edges and corners", ResizeHitTestDetectsEdgesAndCorners),
+    ("Resize hit test keeps center draggable", ResizeHitTestKeepsCenterDraggable),
 };
 
 var failures = new List<string>();
@@ -190,6 +192,35 @@ static void ExitTimerReturnsToStopwatchMode()
 
     False(tracker.IsTimerMode);
     Equal(TimeSpan.FromSeconds(7), tracker.DisplayTime);
+}
+
+static void ResizeHitTestDetectsEdgesAndCorners()
+{
+    Equal(
+        ResizeRegion.TopLeft,
+        ResizeRegionResolver.Resolve(2, 2, 200, 80, 8));
+    Equal(
+        ResizeRegion.TopRight,
+        ResizeRegionResolver.Resolve(198, 2, 200, 80, 8));
+    Equal(
+        ResizeRegion.BottomLeft,
+        ResizeRegionResolver.Resolve(2, 78, 200, 80, 8));
+    Equal(
+        ResizeRegion.BottomRight,
+        ResizeRegionResolver.Resolve(198, 78, 200, 80, 8));
+    Equal(
+        ResizeRegion.Left,
+        ResizeRegionResolver.Resolve(2, 40, 200, 80, 8));
+    Equal(
+        ResizeRegion.Right,
+        ResizeRegionResolver.Resolve(198, 40, 200, 80, 8));
+}
+
+static void ResizeHitTestKeepsCenterDraggable()
+{
+    Equal(
+        ResizeRegion.Client,
+        ResizeRegionResolver.Resolve(100, 40, 200, 80, 8));
 }
 
 static void Equal<T>(T expected, T actual)

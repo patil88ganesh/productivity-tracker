@@ -4,12 +4,10 @@
         Title="Productivity Tracker"
         Width="184"
         Height="58"
-        MinWidth="184"
-        MinHeight="58"
-        MaxWidth="184"
-        MaxHeight="58"
+        MinWidth="140"
+        MinHeight="48"
         WindowStyle="None"
-        ResizeMode="NoResize"
+        ResizeMode="CanResize"
         AllowsTransparency="True"
         Background="Transparent"
         Topmost="True"
@@ -17,6 +15,7 @@
         WindowStartupLocation="CenterScreen"
         PreviewMouseDown="Window_PreviewMouseDown"
         Closed="Window_Closed"
+        SizeChanged="Window_SizeChanged"
         StateChanged="Window_StateChanged"
         SourceInitialized="Window_SourceInitialized">
     <Window.ContextMenu>
@@ -66,9 +65,12 @@
             BorderBrush="#7F9AA0A5"
             Background="White"
             Padding="9,5"
+            MouseEnter="TrackerBorder_MouseEnter"
+            MouseLeave="TrackerBorder_MouseLeave"
             SnapsToDevicePixels="True">
         <Border.Effect>
-            <DropShadowEffect BlurRadius="10"
+            <DropShadowEffect x:Name="TrackerShadow"
+                              BlurRadius="10"
                               Direction="270"
                               ShadowDepth="2"
                               Opacity="0.24"
