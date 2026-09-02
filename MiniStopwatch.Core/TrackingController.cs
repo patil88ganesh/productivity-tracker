@@ -11,6 +11,8 @@ public sealed class TrackingController
 
     public bool IsRunning => stopwatch.IsRunning;
 
+    public bool IsAutomaticallyPaused => stopwatch.IsAutomaticallyPaused;
+
     public bool IsTimerMode => TimerDuration.HasValue;
 
     public bool IsTimerCompleted { get; private set; }
@@ -114,5 +116,10 @@ public sealed class TrackingController
     public void OnSessionUnlocked()
     {
         stopwatch.OnSessionUnlocked();
+    }
+
+    public void OnDistractingWebsiteChanged(bool isActive)
+    {
+        stopwatch.OnDistractingWebsiteChanged(isActive);
     }
 }

@@ -18,6 +18,9 @@ var tests = new (string Name, Action Run)[]
     ("Added time continues from current stopwatch", AddedTimeContinuesFromCurrentStopwatch),
     ("Added time preserves a running stopwatch", AddedTimePreservesRunningStopwatch),
     ("Add and start exits countdown mode", AddAndStartExitsCountdownMode),
+    ("Distracting site pauses and resumes tracking", DistractingSitePausesAndResumesTracking),
+    ("Lock and distracting site require both to clear", AutomaticPauseReasonsMustBothClear),
+    ("Manual stop during automatic pause prevents resume", ManualStopDuringAutomaticPausePreventsResume),
 };
 
 var failures = new List<string>();
@@ -265,6 +268,56 @@ static void AddAndStartExitsCountdownMode()
     False(tracker.IsTimerMode);
     True(tracker.IsRunning);
     Equal(TimeSpan.FromMinutes(30), tracker.DisplayTime);
+}
+
+static void DistractingSitePausesAndResumesTracking()
+{
+    var clock = new FakeClock();
+    var tracker = new TrackingController(clock);
+
+    tracker.Toggle();
+    clock.Advance(TimeSpan.FromMinutes(8));
+    tracker.OnDistractingWebsiteChanged(isActive: true);
+    clock.Advance(TimeSpan.FromMinutes(12));
+
+    True(tracker.IsAutomaticallyPaused);
+    Equal(TimeSpan.FromMinutes(8), tracker.DisplayTime);
+
+    tracker.OnDistractingWebsiteChanged(isActive: false);
+    clock.Advance(TimeSpan.FromMinutes(2));
+
+    True(tracker.IsRunning);
+    Equal(TimeSpan.FromMinutes(10), tracker.DisplayTime);
+}
+
+static void AutomaticPauseReasonsMustBothClear()
+{
+    var tracker = new TrackingController(new FakeClock());
+
+    tracker.Toggle();
+    tracker.OnSessionLocked();
+    tracker.OnDistractingWebsiteChanged(isActive: true);
+    tracker.OnSessionUnlocked();
+
+    False(tracker.IsRunning);
+    True(tracker.IsAutomaticallyPaused);
+
+    tracker.OnDistractingWebsiteChanged(isActive: false);
+
+    True(tracker.IsRunning);
+}
+
+static void ManualStopDuringAutomaticPausePreventsResume()
+{
+    var tracker = new TrackingController(new FakeClock());
+
+    tracker.Toggle();
+    tracker.OnDistractingWebsiteChanged(isActive: true);
+    tracker.Toggle();
+    tracker.OnDistractingWebsiteChanged(isActive: false);
+
+    False(tracker.IsRunning);
+    False(tracker.IsAutomaticallyPaused);
 }
 
 static void Equal<T>(T expected, T actual)

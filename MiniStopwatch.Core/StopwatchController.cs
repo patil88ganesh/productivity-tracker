@@ -1,11 +1,18 @@
 namespace MiniStopwatch.Core;
 
+public enum AutomaticPauseReason
+{
+    SessionLocked,
+    DistractingWebsite,
+}
+
 public sealed class StopwatchController
 {
     private readonly IMonotonicClock clock;
+    private readonly HashSet<AutomaticPauseReason> automaticPauseReasons = [];
     private TimeSpan accumulated;
     private TimeSpan startedAt;
-    private bool resumeAfterUnlock;
+    private bool resumeAfterAutomaticPause;
 
     public StopwatchController(IMonotonicClock clock)
     {
@@ -14,12 +21,15 @@ public sealed class StopwatchController
 
     public bool IsRunning { get; private set; }
 
+    public bool IsAutomaticallyPaused =>
+        resumeAfterAutomaticPause && automaticPauseReasons.Count > 0;
+
     public TimeSpan Elapsed =>
         IsRunning ? accumulated + (clock.Now - startedAt) : accumulated;
 
     public void Toggle()
     {
-        if (IsRunning)
+        if (IsRunning || resumeAfterAutomaticPause)
         {
             Stop();
         }
@@ -31,26 +41,30 @@ public sealed class StopwatchController
 
     public void Start()
     {
-        if (IsRunning)
+        if (IsRunning || resumeAfterAutomaticPause)
         {
+            return;
+        }
+
+        if (automaticPauseReasons.Count > 0)
+        {
+            resumeAfterAutomaticPause = true;
             return;
         }
 
         startedAt = clock.Now;
         IsRunning = true;
-        resumeAfterUnlock = false;
     }
 
     public void Stop()
     {
-        if (!IsRunning)
+        if (IsRunning)
         {
-            return;
+            accumulated = Elapsed;
         }
 
-        accumulated = Elapsed;
         IsRunning = false;
-        resumeAfterUnlock = false;
+        resumeAfterAutomaticPause = false;
     }
 
     public void Reset()
@@ -83,25 +97,47 @@ public sealed class StopwatchController
 
     public void OnSessionLocked()
     {
-        if (!IsRunning)
-        {
-            return;
-        }
-
-        accumulated = Elapsed;
-        IsRunning = false;
-        resumeAfterUnlock = true;
+        SetAutomaticPause(AutomaticPauseReason.SessionLocked, isActive: true);
     }
 
     public void OnSessionUnlocked()
     {
-        if (!resumeAfterUnlock)
+        SetAutomaticPause(AutomaticPauseReason.SessionLocked, isActive: false);
+    }
+
+    public void OnDistractingWebsiteChanged(bool isActive)
+    {
+        SetAutomaticPause(AutomaticPauseReason.DistractingWebsite, isActive);
+    }
+
+    private void SetAutomaticPause(AutomaticPauseReason reason, bool isActive)
+    {
+        if (isActive)
+        {
+            if (!automaticPauseReasons.Add(reason))
+            {
+                return;
+            }
+
+            if (IsRunning)
+            {
+                accumulated = Elapsed;
+                IsRunning = false;
+                resumeAfterAutomaticPause = true;
+            }
+
+            return;
+        }
+
+        if (!automaticPauseReasons.Remove(reason) ||
+            automaticPauseReasons.Count > 0 ||
+            !resumeAfterAutomaticPause)
         {
             return;
         }
 
         startedAt = clock.Now;
         IsRunning = true;
-        resumeAfterUnlock = false;
+        resumeAfterAutomaticPause = false;
     }
 }

@@ -28,6 +28,15 @@
                       Header="Exit Timer"
                       Visibility="Collapsed"
                       Click="ExitTimerMenuItem_Click"/>
+            <MenuItem Header="Focus Protection">
+                <MenuItem x:Name="SocialMediaPauseMenuItem"
+                          Header="Pause on social media and WhatsApp"
+                          IsCheckable="True"
+                          Click="SocialMediaPauseMenuItem_Click"/>
+                <Separator/>
+                <MenuItem Header="Browser Extension Setup..."
+                          Click="BrowserExtensionSetupMenuItem_Click"/>
+            </MenuItem>
             <Separator/>
             <MenuItem Header="Transparency">
                 <MenuItem x:Name="Opacity40MenuItem"

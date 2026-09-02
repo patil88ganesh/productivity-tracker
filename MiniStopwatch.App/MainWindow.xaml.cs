@@ -1,4 +1,6 @@
 ﻿using System.Media;
+using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
@@ -24,6 +26,16 @@ public partial class MainWindow : Window
     private const string OpacityRegistryValue = "OpacityPercent";
     private const string WidthRegistryValue = "WindowWidth";
     private const string HeightRegistryValue = "WindowHeight";
+    private const string SocialMediaPauseRegistryValue = "SocialMediaPauseEnabled";
+    private const string BrowserSetupShownRegistryValue = "BrowserSetupShown";
+    private const string NativeHostName = "com.patil88ganesh.productivity_tracker";
+    private const string NativeHostManifestFile = "native-messaging-host.json";
+    private const string NativeHostExecutable = "ProductivityTracker.NativeHost.exe";
+    private const string ExtensionId = "dhnpejafolnigilfhbbdiaanpfegpggd";
+    private const string ChromeNativeHostRegistryPath =
+        @"Software\Google\Chrome\NativeMessagingHosts\com.patil88ganesh.productivity_tracker";
+    private const string EdgeNativeHostRegistryPath =
+        @"Software\Microsoft\Edge\NativeMessagingHosts\com.patil88ganesh.productivity_tracker";
     private const uint FlashWindowAll = 0x00000003;
     private const double DefaultWidth = 184;
     private const double DefaultHeight = 58;
@@ -32,6 +44,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer displayTimer;
     private readonly DispatcherTimer completionFlashTimer;
     private readonly MenuItem[] opacityMenuItems;
+    private readonly SocialMediaPauseBridge socialMediaPauseBridge;
     private readonly SolidColorBrush normalBorderBrush =
         new(Color.FromArgb(0x7F, 0x9A, 0xA0, 0xA5));
     private readonly SolidColorBrush hoverBorderBrush =
@@ -45,6 +58,9 @@ public partial class MainWindow : Window
     private int completionFlashStep;
     private bool isCompletionFlashing;
     private bool isPointerOver;
+    private bool isClosing;
+    private bool socialMediaPauseEnabled;
+    private bool browserReportsDistractingSite;
 
     public MainWindow()
     {
@@ -60,6 +76,9 @@ public partial class MainWindow : Window
         ];
         SetOpacity(LoadOpacityPercent(), persist: false);
         LoadWindowSize();
+        socialMediaPauseEnabled = LoadBooleanSetting(SocialMediaPauseRegistryValue);
+        SocialMediaPauseMenuItem.IsChecked = socialMediaPauseEnabled;
+        socialMediaPauseBridge = new SocialMediaPauseBridge(OnBrowserActivityChanged);
 
         displayTimer = new DispatcherTimer(DispatcherPriority.Render)
         {
@@ -90,8 +109,10 @@ public partial class MainWindow : Window
 
     private void Window_Closed(object? sender, EventArgs e)
     {
+        isClosing = true;
         displayTimer.Stop();
         completionFlashTimer.Stop();
+        socialMediaPauseBridge.Dispose();
         SaveWindowSize();
 
         var handle = new WindowInteropHelper(this).Handle;
@@ -208,6 +229,27 @@ public partial class MainWindow : Window
         RefreshDisplay();
     }
 
+    private void SocialMediaPauseMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        socialMediaPauseEnabled = SocialMediaPauseMenuItem.IsChecked;
+        SaveBooleanSetting(SocialMediaPauseRegistryValue, socialMediaPauseEnabled);
+        tracker.OnDistractingWebsiteChanged(
+            socialMediaPauseEnabled && browserReportsDistractingSite);
+        RefreshDisplay();
+
+        if (socialMediaPauseEnabled &&
+            !LoadBooleanSetting(BrowserSetupShownRegistryValue))
+        {
+            SaveBooleanSetting(BrowserSetupShownRegistryValue, enabled: true);
+            ShowBrowserExtensionSetup();
+        }
+    }
+
+    private void BrowserExtensionSetupMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        ShowBrowserExtensionSetup();
+    }
+
     private void OpacityMenuItem_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not MenuItem { Tag: string tag } ||
@@ -275,12 +317,16 @@ public partial class MainWindow : Window
             : Visibility.Collapsed;
 
         ToggleMenuItem.Header = tracker.IsTimerMode
-            ? tracker.IsRunning
+            ? tracker.IsAutomaticallyPaused
+                ? "Stop (Auto-paused)"
+                : tracker.IsRunning
                 ? "Pause Timer"
                 : tracker.IsTimerCompleted
                     ? "Restart Timer"
                     : "Resume Timer"
-            : tracker.IsRunning
+            : tracker.IsAutomaticallyPaused
+                ? "Stop (Auto-paused)"
+                : tracker.IsRunning
                 ? "Stop"
                 : "Start";
 
@@ -292,10 +338,18 @@ public partial class MainWindow : Window
         {
             StatusIndicator.Fill = tracker.IsTimerCompleted
                 ? completionBrush
+                : tracker.IsAutomaticallyPaused
+                    ? new SolidColorBrush(Color.FromRgb(0xF0, 0x9A, 0x2A))
                 : tracker.IsRunning
                     ? new SolidColorBrush(Color.FromRgb(67, 160, 71))
                     : new SolidColorBrush(Color.FromRgb(139, 150, 158));
         }
+
+        StatusIndicator.ToolTip = tracker.IsAutomaticallyPaused
+            ? "Paused automatically while a distracting site is active"
+            : tracker.IsRunning
+                ? "Running"
+                : "Stopped";
     }
 
     private void ToggleTracking()
@@ -446,6 +500,115 @@ public partial class MainWindow : Window
                savedValue <= maximum
             ? savedValue
             : defaultValue;
+    }
+
+    private void OnBrowserActivityChanged(bool active)
+    {
+        if (isClosing || Dispatcher.HasShutdownStarted)
+        {
+            return;
+        }
+
+        Dispatcher.InvokeAsync(() =>
+        {
+            if (isClosing)
+            {
+                return;
+            }
+
+            browserReportsDistractingSite = active;
+            tracker.OnDistractingWebsiteChanged(socialMediaPauseEnabled && active);
+            RefreshDisplay();
+        });
+    }
+
+    private void ShowBrowserExtensionSetup()
+    {
+        var extensionDirectory = Path.Combine(
+            AppContext.BaseDirectory,
+            "browser-extension");
+        if (!Directory.Exists(extensionDirectory))
+        {
+            MessageBox.Show(
+                this,
+                "The browser extension files are missing. Reinstall Productivity Tracker using the latest setup.",
+                "Browser extension unavailable",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            return;
+        }
+
+        RegisterNativeMessagingHost();
+        Clipboard.SetText(extensionDirectory);
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = extensionDirectory,
+            UseShellExecute = true,
+        });
+
+        MessageBox.Show(
+            this,
+            "The extension folder is open and its path has been copied.\n\n" +
+            "Microsoft Edge:\n" +
+            "1. Open edge://extensions\n" +
+            "2. Enable Developer mode\n" +
+            "3. Select Load unpacked\n" +
+            "4. Select the browser-extension folder\n\n" +
+            "Google Chrome uses the same steps at chrome://extensions.\n\n" +
+            "The extension requests access only to supported social-media sites and WhatsApp Web.",
+            "Set up Focus Protection",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+    }
+
+    private static void RegisterNativeMessagingHost()
+    {
+        var executablePath = Path.Combine(
+            AppContext.BaseDirectory,
+            NativeHostExecutable);
+        if (!File.Exists(executablePath))
+        {
+            throw new FileNotFoundException(
+                "The Focus Protection native host is missing.",
+                executablePath);
+        }
+
+        var manifestPath = Path.Combine(
+            AppContext.BaseDirectory,
+            NativeHostManifestFile);
+        var escapedExecutablePath = executablePath.Replace("\\", "\\\\");
+        var manifest =
+            "{\n" +
+            $"  \"name\": \"{NativeHostName}\",\n" +
+            "  \"description\": \"Productivity Tracker Focus Protection bridge\",\n" +
+            $"  \"path\": \"{escapedExecutablePath}\",\n" +
+            "  \"type\": \"stdio\",\n" +
+            $"  \"allowed_origins\": [\"chrome-extension://{ExtensionId}/\"]\n" +
+            "}";
+        File.WriteAllText(manifestPath, manifest, new System.Text.UTF8Encoding(false));
+
+        RegisterNativeHostForBrowser(ChromeNativeHostRegistryPath, manifestPath);
+        RegisterNativeHostForBrowser(EdgeNativeHostRegistryPath, manifestPath);
+    }
+
+    private static void RegisterNativeHostForBrowser(
+        string registryPath,
+        string manifestPath)
+    {
+        using var key = Registry.CurrentUser.CreateSubKey(registryPath);
+        key.SetValue(string.Empty, manifestPath, RegistryValueKind.String);
+    }
+
+    private static bool LoadBooleanSetting(string valueName)
+    {
+        using var key = Registry.CurrentUser.OpenSubKey(SettingsRegistryPath);
+        return key?.GetValue(valueName) is int savedValue && savedValue != 0;
+    }
+
+    private static void SaveBooleanSetting(string valueName, bool enabled)
+    {
+        using var key = Registry.CurrentUser.CreateSubKey(SettingsRegistryPath);
+        key.SetValue(valueName, enabled ? 1 : 0, RegistryValueKind.DWord);
     }
 
     private void ScaleDisplay()

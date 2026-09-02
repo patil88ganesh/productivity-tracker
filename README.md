@@ -20,6 +20,20 @@ Visit the [Productivity Tracker website](https://patil88ganesh.github.io/product
 - Transparency can be set to 40%, 55%, 70%, 85%, or 100% and is remembered across restarts.
 - Minimize sends the stopwatch to the Windows taskbar. Restore it from the taskbar to return to the compact overlay.
 - When Windows locks, a running stopwatch pauses. It automatically resumes after unlock without counting the locked time.
+- Optional Focus Protection pauses a running stopwatch or countdown while the focused Edge or Chrome tab is on a supported social-media site or WhatsApp Web.
+
+## Focus Protection
+
+Focus Protection is disabled by default and requires the bundled browser extension:
+
+1. Install Productivity Tracker v2.4.0 or later.
+2. Right-click the clock and select **Focus Protection > Browser Extension Setup**.
+3. Open `edge://extensions` or `chrome://extensions`.
+4. Enable Developer mode and select **Load unpacked**.
+5. Select the opened `browser-extension` folder.
+6. Enable **Focus Protection > Pause on social media and WhatsApp**.
+
+Supported domains are Facebook, Instagram, X/Twitter, Reddit, LinkedIn, YouTube, TikTok, and WhatsApp Web. The extension checks the active domain locally and sends only an active/inactive signal to the desktop app; it does not send URLs or browsing history.
 
 ## Install
 

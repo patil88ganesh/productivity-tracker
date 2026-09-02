@@ -1,4 +1,5 @@
 ﻿using System;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
@@ -21,6 +22,15 @@ internal static class Program
     private const string LegacyProductName = "MiniStopwatch";
     private const string LegacyUninstallRegistryPath =
         @"Software\Microsoft\Windows\CurrentVersion\Uninstall\MiniStopwatch";
+    private const string NativeHostName = "com.patil88ganesh.productivity_tracker";
+    private const string NativeHostManifestFile = "native-messaging-host.json";
+    private const string NativeHostExecutable = "ProductivityTracker.NativeHost.exe";
+    private const string NativeHostProcessName = "ProductivityTracker.NativeHost";
+    private const string ExtensionId = "dhnpejafolnigilfhbbdiaanpfegpggd";
+    private const string ChromeNativeHostRegistryPath =
+        @"Software\Google\Chrome\NativeMessagingHosts\com.patil88ganesh.productivity_tracker";
+    private const string EdgeNativeHostRegistryPath =
+        @"Software\Microsoft\Edge\NativeMessagingHosts\com.patil88ganesh.productivity_tracker";
 
     private static readonly string InstallDirectory = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -81,15 +91,18 @@ internal static class Program
             return 0;
         }
 
+        RemoveNativeMessagingHostRegistration();
+        StopNativeMessagingHosts();
         Directory.CreateDirectory(InstallDirectory);
         ExtractPayload(InstallDirectory);
+        RegisterNativeMessagingHost();
         CopyUninstaller();
         CreateShortcuts();
         RegisterUninstaller();
         RemoveLegacyInstallation();
 
         ShowMessage(
-            "Productivity Tracker was installed.\n\nRight-click to add time and start, set a countdown timer, or adjust the display. Drag any edge or corner to resize.",
+            "Productivity Tracker was installed.\n\nOptional Focus Protection is available from the right-click menu. It pauses tracking on supported social-media sites and WhatsApp Web after browser extension setup.",
             ProductName,
             MessageBoxIcon.Information);
 
@@ -177,7 +190,7 @@ internal static class Program
     {
         using var key = Registry.CurrentUser.CreateSubKey(UninstallRegistryPath);
         key.SetValue("DisplayName", ProductName);
-        key.SetValue("DisplayVersion", "2.3.0");
+        key.SetValue("DisplayVersion", "2.4.0");
         key.SetValue("Publisher", ProductName);
         key.SetValue("InstallLocation", InstallDirectory);
         key.SetValue("DisplayIcon", Path.Combine(InstallDirectory, AppExecutable));
@@ -245,6 +258,8 @@ internal static class Program
         }
 
         RemoveShortcuts(ProductName);
+        RemoveNativeMessagingHostRegistration();
+        StopNativeMessagingHosts();
         Registry.CurrentUser.DeleteSubKeyTree(UninstallRegistryPath, throwOnMissingSubKey: false);
         if (Directory.Exists(directory))
         {
@@ -265,6 +280,81 @@ internal static class Program
         if (Directory.Exists(LegacyInstallDirectory))
         {
             Directory.Delete(LegacyInstallDirectory, recursive: true);
+        }
+    }
+
+    private static void RegisterNativeMessagingHost()
+    {
+        var executablePath = Path.Combine(InstallDirectory, NativeHostExecutable);
+        var manifestPath = Path.Combine(InstallDirectory, NativeHostManifestFile);
+        var escapedExecutablePath = executablePath.Replace("\\", "\\\\");
+        var manifest =
+            "{\n" +
+            $"  \"name\": \"{NativeHostName}\",\n" +
+            "  \"description\": \"Productivity Tracker Focus Protection bridge\",\n" +
+            $"  \"path\": \"{escapedExecutablePath}\",\n" +
+            "  \"type\": \"stdio\",\n" +
+            $"  \"allowed_origins\": [\"chrome-extension://{ExtensionId}/\"]\n" +
+            "}";
+        File.WriteAllText(manifestPath, manifest, new System.Text.UTF8Encoding(false));
+
+        RegisterNativeHostForBrowser(ChromeNativeHostRegistryPath, manifestPath);
+        RegisterNativeHostForBrowser(EdgeNativeHostRegistryPath, manifestPath);
+    }
+
+    private static void RegisterNativeHostForBrowser(
+        string registryPath,
+        string manifestPath)
+    {
+        using var key = Registry.CurrentUser.CreateSubKey(registryPath);
+        key.SetValue(string.Empty, manifestPath, RegistryValueKind.String);
+    }
+
+    private static void RemoveNativeMessagingHostRegistration()
+    {
+        Registry.CurrentUser.DeleteSubKeyTree(
+            ChromeNativeHostRegistryPath,
+            throwOnMissingSubKey: false);
+        Registry.CurrentUser.DeleteSubKeyTree(
+            EdgeNativeHostRegistryPath,
+            throwOnMissingSubKey: false);
+    }
+
+    private static void StopNativeMessagingHosts()
+    {
+        var expectedExecutablePath = Path.GetFullPath(
+            Path.Combine(InstallDirectory, NativeHostExecutable));
+
+        foreach (var process in Process.GetProcessesByName(NativeHostProcessName))
+        {
+            try
+            {
+                var processPath = process.MainModule?.FileName;
+                if (string.IsNullOrEmpty(processPath) ||
+                    !string.Equals(
+                        Path.GetFullPath(processPath),
+                        expectedExecutablePath,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (!process.HasExited)
+                {
+                    process.Kill();
+                    process.WaitForExit(3000);
+                }
+            }
+            catch (InvalidOperationException)
+            {
+            }
+            catch (Win32Exception)
+            {
+            }
+            finally
+            {
+                process.Dispose();
+            }
         }
     }
 
