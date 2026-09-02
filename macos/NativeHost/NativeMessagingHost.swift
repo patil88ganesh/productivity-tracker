@@ -117,7 +117,7 @@ private func readMessage(from input: FileHandle) throws -> Bool? {
 }
 
 let input = FileHandle.standardInput
-let applicationConnection = ApplicationConnection()
+private let applicationConnection = ApplicationConnection()
 
 do {
     while let active = try readMessage(from: input) {
