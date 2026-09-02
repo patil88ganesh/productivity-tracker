@@ -1,0 +1,95 @@
+﻿<Window x:Class="MiniStopwatch.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Productivity Tracker"
+        Width="184"
+        Height="58"
+        MinWidth="184"
+        MinHeight="58"
+        MaxWidth="184"
+        MaxHeight="58"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Topmost="True"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterScreen"
+        PreviewMouseDown="Window_PreviewMouseDown"
+        Closed="Window_Closed"
+        StateChanged="Window_StateChanged"
+        SourceInitialized="Window_SourceInitialized">
+    <Window.ContextMenu>
+        <ContextMenu>
+            <MenuItem x:Name="ToggleMenuItem" Header="Start" Click="ToggleMenuItem_Click"/>
+            <MenuItem Header="Reset" Click="ResetMenuItem_Click"/>
+            <MenuItem Header="Transparency">
+                <MenuItem x:Name="Opacity40MenuItem"
+                          Header="40%"
+                          Tag="40"
+                          IsCheckable="True"
+                          Click="OpacityMenuItem_Click"/>
+                <MenuItem x:Name="Opacity55MenuItem"
+                          Header="55%"
+                          Tag="55"
+                          IsCheckable="True"
+                          Click="OpacityMenuItem_Click"/>
+                <MenuItem x:Name="Opacity70MenuItem"
+                          Header="70%"
+                          Tag="70"
+                          IsCheckable="True"
+                          Click="OpacityMenuItem_Click"/>
+                <MenuItem x:Name="Opacity85MenuItem"
+                          Header="85%"
+                          Tag="85"
+                          IsCheckable="True"
+                          Click="OpacityMenuItem_Click"/>
+                <MenuItem x:Name="Opacity100MenuItem"
+                          Header="100%"
+                          Tag="100"
+                          IsCheckable="True"
+                          Click="OpacityMenuItem_Click"/>
+            </MenuItem>
+            <Separator/>
+            <MenuItem Header="Minimize" Click="MinimizeMenuItem_Click"/>
+            <MenuItem Header="Exit" Click="ExitMenuItem_Click"/>
+        </ContextMenu>
+    </Window.ContextMenu>
+    <Border CornerRadius="9"
+            BorderThickness="1"
+            BorderBrush="#7F9AA0A5"
+            Background="White"
+            Padding="9,5"
+            SnapsToDevicePixels="True">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="10"
+                              Direction="270"
+                              ShadowDepth="2"
+                              Opacity="0.24"
+                              Color="#404850"/>
+        </Border.Effect>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="10"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Ellipse x:Name="StatusIndicator"
+                     Width="6"
+                     Height="6"
+                     Fill="#8B969E"
+                     VerticalAlignment="Center"
+                     HorizontalAlignment="Left"/>
+            <TextBlock x:Name="TimeDisplay"
+                       Grid.Column="1"
+                       Text="00:00:00"
+                       Foreground="#727D86"
+                       FontFamily="Consolas"
+                       FontSize="28"
+                       FontWeight="SemiBold"
+                       FontStyle="Italic"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       TextOptions.TextFormattingMode="Display"/>
+        </Grid>
+    </Border>
+</Window>

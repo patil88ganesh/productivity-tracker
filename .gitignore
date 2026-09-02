@@ -1,0 +1,8 @@
+.vs/
+**/bin/
+**/obj/
+artifacts/
+dist/
+MiniStopwatch.Installer/Payload.zip
+*.user
+*.suo

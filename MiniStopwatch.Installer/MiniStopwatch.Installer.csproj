@@ -1,0 +1,24 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>ProductivityTracker-Setup</AssemblyName>
+    <RootNamespace>MiniStopwatch.Installer</RootNamespace>
+    <ApplicationIcon>..\MiniStopwatch.App\Assets\ProductivityTracker.ico</ApplicationIcon>
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+  </PropertyGroup>
+
+  <ItemGroup Condition="Exists('Payload.zip')">
+    <EmbeddedResource Include="Payload.zip" LogicalName="ProductivityTracker.Payload.zip" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
+  </ItemGroup>
+
+</Project>
