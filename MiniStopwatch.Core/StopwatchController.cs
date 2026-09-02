@@ -62,6 +62,25 @@ public sealed class StopwatchController
         }
     }
 
+    public void Add(TimeSpan duration)
+    {
+        if (duration < TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(duration),
+                "Added time cannot be negative.");
+        }
+
+        if (IsRunning)
+        {
+            accumulated = Elapsed + duration;
+            startedAt = clock.Now;
+            return;
+        }
+
+        accumulated += duration;
+    }
+
     public void OnSessionLocked()
     {
         if (!IsRunning)

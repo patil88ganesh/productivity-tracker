@@ -22,6 +22,7 @@
         <ContextMenu>
             <MenuItem x:Name="ToggleMenuItem" Header="Start" Click="ToggleMenuItem_Click"/>
             <MenuItem Header="Reset" Click="ResetMenuItem_Click"/>
+            <MenuItem Header="Add and Start..." Click="AddAndStartMenuItem_Click"/>
             <MenuItem Header="Set Timer..." Click="TimerMenuItem_Click"/>
             <MenuItem x:Name="ExitTimerMenuItem"
                       Header="Exit Timer"

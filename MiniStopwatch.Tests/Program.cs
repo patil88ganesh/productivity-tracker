@@ -15,6 +15,9 @@ var tests = new (string Name, Action Run)[]
     ("Exit timer returns to stopwatch mode", ExitTimerReturnsToStopwatchMode),
     ("Resize hit test detects edges and corners", ResizeHitTestDetectsEdgesAndCorners),
     ("Resize hit test keeps center draggable", ResizeHitTestKeepsCenterDraggable),
+    ("Added time continues from current stopwatch", AddedTimeContinuesFromCurrentStopwatch),
+    ("Added time preserves a running stopwatch", AddedTimePreservesRunningStopwatch),
+    ("Add and start exits countdown mode", AddAndStartExitsCountdownMode),
 };
 
 var failures = new List<string>();
@@ -221,6 +224,47 @@ static void ResizeHitTestKeepsCenterDraggable()
     Equal(
         ResizeRegion.Client,
         ResizeRegionResolver.Resolve(100, 40, 200, 80, 8));
+}
+
+static void AddedTimeContinuesFromCurrentStopwatch()
+{
+    var clock = new FakeClock();
+    var tracker = new TrackingController(clock);
+
+    tracker.Toggle();
+    clock.Advance(TimeSpan.FromMinutes(10));
+    tracker.Toggle();
+    tracker.AddAndStart(TimeSpan.FromHours(1));
+    clock.Advance(TimeSpan.FromMinutes(5));
+
+    True(tracker.IsRunning);
+    Equal(TimeSpan.FromMinutes(75), tracker.DisplayTime);
+}
+
+static void AddedTimePreservesRunningStopwatch()
+{
+    var clock = new FakeClock();
+    var tracker = new TrackingController(clock);
+
+    tracker.Toggle();
+    clock.Advance(TimeSpan.FromMinutes(5));
+    tracker.AddAndStart(TimeSpan.FromMinutes(30));
+    clock.Advance(TimeSpan.FromMinutes(2));
+
+    True(tracker.IsRunning);
+    Equal(TimeSpan.FromMinutes(37), tracker.DisplayTime);
+}
+
+static void AddAndStartExitsCountdownMode()
+{
+    var tracker = new TrackingController(new FakeClock());
+
+    tracker.StartTimer(TimeSpan.FromMinutes(25));
+    tracker.AddAndStart(TimeSpan.FromMinutes(30));
+
+    False(tracker.IsTimerMode);
+    True(tracker.IsRunning);
+    Equal(TimeSpan.FromMinutes(30), tracker.DisplayTime);
 }
 
 static void Equal<T>(T expected, T actual)

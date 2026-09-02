@@ -66,6 +66,24 @@ public sealed class TrackingController
         stopwatch.Start();
     }
 
+    public void AddAndStart(TimeSpan duration)
+    {
+        if (duration <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(duration),
+                "Added time must be greater than zero.");
+        }
+
+        if (IsTimerMode)
+        {
+            ExitTimer();
+        }
+
+        stopwatch.Add(duration);
+        stopwatch.Start();
+    }
+
     public void ExitTimer()
     {
         stopwatch.Stop();

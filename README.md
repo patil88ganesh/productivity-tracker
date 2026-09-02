@@ -12,7 +12,8 @@ Visit the [Productivity Tracker website](https://patil88ganesh.github.io/product
 - Left-drag the timer to move it.
 - Drag any edge or corner to resize it. The digits scale automatically and the selected size is remembered.
 - Hovering over the clock highlights its surface, border, and shadow.
-- Right-click for Start/Stop, Reset, Set Timer, Transparency, Minimize, and Exit.
+- Right-click for Start/Stop, Reset, Add and Start, Set Timer, Transparency, Minimize, and Exit.
+- Add and Start accepts hours and minutes, adds them to the current stopwatch total, and immediately resumes counting.
 - Set Timer opens a custom hours/minutes/seconds countdown. Middle-click pauses or resumes it.
 - When a countdown reaches zero, the app plays a sound and flashes visually and on the taskbar.
 - Exit Timer returns to regular stopwatch mode.

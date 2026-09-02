@@ -17,11 +17,13 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Text="Countdown timer"
+        <TextBlock x:Name="DialogHeading"
+                   Text="Countdown timer"
                    Foreground="#263845"
                    FontSize="19"
                    FontWeight="SemiBold"/>
-        <TextBlock Grid.Row="1"
+        <TextBlock x:Name="DialogDescription"
+                   Grid.Row="1"
                    Margin="0,4,0,18"
                    Text="Enter the duration and the timer will start immediately."
                    Foreground="#6D7D88"
@@ -32,8 +34,8 @@
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="14"/>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="14"/>
-                <ColumnDefinition Width="*"/>
+                <ColumnDefinition x:Name="SecondsSpacerColumn" Width="14"/>
+                <ColumnDefinition x:Name="SecondsColumn" Width="*"/>
             </Grid.ColumnDefinitions>
 
             <StackPanel>
@@ -66,7 +68,7 @@
                            FontSize="11"/>
             </StackPanel>
 
-            <StackPanel Grid.Column="4">
+            <StackPanel x:Name="SecondsPanel" Grid.Column="4">
                 <TextBox x:Name="SecondsTextBox"
                          Text="00"
                          MaxLength="2"
@@ -91,11 +93,12 @@
                     Margin="0,0,9,0"
                     Padding="8,5"
                     IsCancel="True"/>
-            <Button Content="Start timer"
+            <Button x:Name="ConfirmButton"
+                    Content="Start timer"
                     Width="96"
                     Padding="8,5"
                     IsDefault="True"
-                    Click="StartTimer_Click"/>
+                    Click="Confirm_Click"/>
         </StackPanel>
     </Grid>
 </Window>

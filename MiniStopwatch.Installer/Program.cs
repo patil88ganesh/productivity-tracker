@@ -89,7 +89,7 @@ internal static class Program
         RemoveLegacyInstallation();
 
         ShowMessage(
-            "Productivity Tracker was installed.\n\nDrag any edge or corner to resize it. Middle-click to start or pause. Right-click for timer and display options.",
+            "Productivity Tracker was installed.\n\nRight-click to add time and start, set a countdown timer, or adjust the display. Drag any edge or corner to resize.",
             ProductName,
             MessageBoxIcon.Information);
 
@@ -177,7 +177,7 @@ internal static class Program
     {
         using var key = Registry.CurrentUser.CreateSubKey(UninstallRegistryPath);
         key.SetValue("DisplayName", ProductName);
-        key.SetValue("DisplayVersion", "2.2.0");
+        key.SetValue("DisplayVersion", "2.3.0");
         key.SetValue("Publisher", ProductName);
         key.SetValue("InstallLocation", InstallDirectory);
         key.SetValue("DisplayIcon", Path.Combine(InstallDirectory, AppExecutable));

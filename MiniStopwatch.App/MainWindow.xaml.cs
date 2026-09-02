@@ -169,7 +169,7 @@ public partial class MainWindow : Window
 
     private void TimerMenuItem_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new TimerDialog
+        var dialog = new TimerDialog(DurationDialogMode.CountdownTimer)
         {
             Owner = this,
         };
@@ -181,6 +181,23 @@ public partial class MainWindow : Window
 
         StopCompletionAlert();
         tracker.StartTimer(dialog.Duration);
+        RefreshDisplay();
+    }
+
+    private void AddAndStartMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new TimerDialog(DurationDialogMode.AddAndStart)
+        {
+            Owner = this,
+        };
+
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        StopCompletionAlert();
+        tracker.AddAndStart(dialog.Duration);
         RefreshDisplay();
     }
 

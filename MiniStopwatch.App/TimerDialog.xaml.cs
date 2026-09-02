@@ -2,30 +2,62 @@
 
 namespace MiniStopwatch.App;
 
+public enum DurationDialogMode
+{
+    CountdownTimer,
+    AddAndStart,
+}
+
 public partial class TimerDialog : Window
 {
-    public TimerDialog()
+    private readonly DurationDialogMode mode;
+
+    public TimerDialog(DurationDialogMode mode)
     {
         InitializeComponent();
+        this.mode = mode;
+
+        if (mode == DurationDialogMode.AddAndStart)
+        {
+            Title = "Add and Start";
+            DialogHeading.Text = "Add time and start";
+            DialogDescription.Text =
+                "Enter time to add to the current stopwatch, then continue counting.";
+            MinutesTextBox.Text = "00";
+            SecondsPanel.Visibility = Visibility.Collapsed;
+            SecondsSpacerColumn.Width = new GridLength(0);
+            SecondsColumn.Width = new GridLength(0);
+            ConfirmButton.Content = "Add and start";
+            ConfirmButton.Width = 108;
+        }
+
         Loaded += (_, _) =>
         {
-            MinutesTextBox.Focus();
-            MinutesTextBox.SelectAll();
+            var initialField = mode == DurationDialogMode.AddAndStart
+                ? HoursTextBox
+                : MinutesTextBox;
+            initialField.Focus();
+            initialField.SelectAll();
         };
     }
 
     public TimeSpan Duration { get; private set; }
 
-    private void StartTimer_Click(object sender, RoutedEventArgs e)
+    private void Confirm_Click(object sender, RoutedEventArgs e)
     {
         if (!TryReadComponent(HoursTextBox.Text, 99, out var hours) ||
             !TryReadComponent(MinutesTextBox.Text, 59, out var minutes) ||
-            !TryReadComponent(SecondsTextBox.Text, 59, out var seconds))
+            !TryReadComponent(
+                mode == DurationDialogMode.AddAndStart ? "0" : SecondsTextBox.Text,
+                59,
+                out var seconds))
         {
             MessageBox.Show(
                 this,
-                "Enter hours from 0-99 and minutes or seconds from 0-59.",
-                "Invalid timer duration",
+                mode == DurationDialogMode.AddAndStart
+                    ? "Enter hours from 0-99 and minutes from 0-59."
+                    : "Enter hours from 0-99 and minutes or seconds from 0-59.",
+                "Invalid duration",
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
             return;
@@ -36,8 +68,8 @@ public partial class TimerDialog : Window
         {
             MessageBox.Show(
                 this,
-                "Timer duration must be greater than zero.",
-                "Invalid timer duration",
+                "Duration must be greater than zero.",
+                "Invalid duration",
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
             return;
