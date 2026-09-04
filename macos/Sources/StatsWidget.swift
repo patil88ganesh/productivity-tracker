@@ -25,6 +25,8 @@ final class StatsWidgetController: NSWindowController {
     static let minimumWidth: CGFloat = 230
 
     private var rowLabels: [NSTextField] = []
+    private var localMouseMonitor: Any?
+    private var globalMouseMonitor: Any?
 
     init() {
         let contentView = StatsWidgetView(
@@ -59,10 +61,24 @@ final class StatsWidgetController: NSWindowController {
         fatalError("init(coder:) has not been implemented")
     }
 
+    deinit {
+        removeMouseMonitors()
+    }
+
     func update(rows: [DailyStatsRow]) {
         for (label, row) in zip(rowLabels, rows) {
             label.stringValue = "\(row.date) | \(row.day) | \(row.hours)"
         }
+    }
+
+    func show(onClickOutside: @escaping () -> Void) {
+        installMouseMonitors(onClickOutside: onClickOutside)
+        window?.orderFront(nil)
+    }
+
+    func hide() {
+        removeMouseMonitors()
+        window?.orderOut(nil)
     }
 
     private func configureContent(in contentView: NSView) {
@@ -106,5 +122,40 @@ final class StatsWidgetController: NSWindowController {
         )
         label.lineBreakMode = .byClipping
         return label
+    }
+
+    private func installMouseMonitors(onClickOutside: @escaping () -> Void) {
+        removeMouseMonitors()
+        let mouseEvents: NSEvent.EventTypeMask = [
+            .leftMouseDown,
+            .rightMouseDown,
+            .otherMouseDown,
+        ]
+        localMouseMonitor = NSEvent.addLocalMonitorForEvents(
+            matching: mouseEvents
+        ) { [weak self] event in
+            if event.window !== self?.window {
+                onClickOutside()
+            }
+            return event
+        }
+        globalMouseMonitor = NSEvent.addGlobalMonitorForEvents(
+            matching: mouseEvents
+        ) { _ in
+            DispatchQueue.main.async {
+                onClickOutside()
+            }
+        }
+    }
+
+    private func removeMouseMonitors() {
+        if let localMouseMonitor {
+            NSEvent.removeMonitor(localMouseMonitor)
+            self.localMouseMonitor = nil
+        }
+        if let globalMouseMonitor {
+            NSEvent.removeMonitor(globalMouseMonitor)
+            self.globalMouseMonitor = nil
+        }
     }
 }

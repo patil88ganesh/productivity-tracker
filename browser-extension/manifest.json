@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Productivity Tracker Focus Protection",
-  "version": "2.7.0",
+  "version": "2.7.1",
   "description": "Pauses Productivity Tracker while a selected distracting website is active.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAv+PYLtU5THih6MyrofaD2rb4MRWAvlk9psiQ2ffPhBhV4EfVnCIx5lI+tBxVW9lz56+7jmHMWyVaqbA9bzqjoSgXBkBu5FAjdE+Mp63u/DGln8/Dp/yyvgCOTMjjICWWDKw4tNhunYbX765v2t7T+huObZAy/B39wK6sHicUu8sm7L9Mi54Q54u3BxdipUT/5k8vPy4aBwYKSM0oLv2wJOlhV1vNyrDR9RU65L74r7Wxgn2sWksdeo+c+8g5KkvFtwndBO3Or2Gq/39dEp3zfnMjbBSduSoVnaGU9XZK+ENSa2M+AwLy6P9z6srbYHWk4ksrljzbDwGxr8mRQDq1AQIDAQAB",
   "permissions": [

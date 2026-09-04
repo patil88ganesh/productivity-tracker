@@ -46,8 +46,9 @@ leave the browser.
 
 ## My stats (mini)
 
-Choose **My stats (mini)** from the timer's right-click menu to toggle the
+Choose **My stats (mini)** from the timer's right-click menu to open the
 attached seven-day report. It lists today and the previous six local calendar
 days as `Date | Day | Hours`. Only active running time is counted; paused,
 locked, Focus Protection, and app-closed time are excluded. Days with no active
-tracked time display `NA`.
+tracked time display `NA`. The report closes automatically when you click
+outside it.

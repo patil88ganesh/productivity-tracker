@@ -3,15 +3,15 @@
 Productivity Tracker is a compact, semi-transparent, always-on-top stopwatch
 and countdown timer for Windows and macOS.
 
-## Downloads — version 2.7.0
+## Downloads — version 2.7.1
 
-- **Windows 10/11 x64:** [ProductivityTracker-Setup.exe](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.7.0/ProductivityTracker-Setup.exe)
-- **macOS 12+ Apple silicon:** [ProductivityTracker-macOS-arm64.app.zip](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.7.0/ProductivityTracker-macOS-arm64.app.zip)
-- **macOS 12+ Intel:** [ProductivityTracker-macOS-x64.app.zip](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.7.0/ProductivityTracker-macOS-x64.app.zip)
+- **Windows 10/11 x64:** [ProductivityTracker-Setup.exe](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.7.1/ProductivityTracker-Setup.exe)
+- **macOS 12+ Apple silicon:** [ProductivityTracker-macOS-arm64.app.zip](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.7.1/ProductivityTracker-macOS-arm64.app.zip)
+- **macOS 12+ Intel:** [ProductivityTracker-macOS-x64.app.zip](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.7.1/ProductivityTracker-macOS-x64.app.zip)
 
 Release downloads will be published under:
 
-`https://github.com/patil88ganesh/productivity-tracker/releases/tag/v2.7.0`
+`https://github.com/patil88ganesh/productivity-tracker/releases/tag/v2.7.1`
 
 The macOS build is a beta with an ad-hoc signature and is not notarized. After
 extracting the zip, move `ProductivityTracker.app` to Applications and try to
@@ -43,12 +43,13 @@ confirm **Open**. Do not bypass Gatekeeper globally.
 
 ## My stats (mini)
 
-Choose **My stats (mini)** from the right-click menu to toggle a compact report
+Choose **My stats (mini)** from the right-click menu to open a compact report
 attached below the tracker. It shows today and the previous six local calendar
 days as `Date | Day | Hours`. Hours are accumulated only while the stopwatch or
 countdown is actively running; manual pause, computer lock, Focus Protection,
 and app-closed time are excluded. A day with no active tracked time displays
-`NA`. Statistics begin with version 2.7.0 and persist locally across restarts.
+`NA`. The report closes automatically when you click outside it. Statistics
+begin with version 2.7.0 and persist locally across restarts.
 
 ## Focus Protection
 

@@ -14,6 +14,7 @@
         ShowInTaskbar="False"
         WindowStartupLocation="CenterScreen"
         PreviewMouseDown="Window_PreviewMouseDown"
+        Deactivated="Window_Deactivated"
         Closed="Window_Closed"
         LocationChanged="Window_LocationChanged"
         SizeChanged="Window_SizeChanged"

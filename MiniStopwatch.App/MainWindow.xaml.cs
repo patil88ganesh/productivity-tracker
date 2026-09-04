@@ -16,6 +16,9 @@ namespace MiniStopwatch.App;
 public partial class MainWindow : Window
 {
     private const int WmNcHitTest = 0x0084;
+    private const int WmNcLeftButtonDown = 0x00A1;
+    private const int WmNcRightButtonDown = 0x00A4;
+    private const int WmNcMiddleButtonDown = 0x00A7;
     private const int WmWtsSessionChange = 0x02B1;
     private const int WtsSessionLock = 0x7;
     private const int WtsSessionUnlock = 0x8;
@@ -69,7 +72,6 @@ public partial class MainWindow : Window
     private bool isClosing;
     private bool socialMediaPauseEnabled;
     private bool browserReportsDistractingSite;
-    private bool statsWasVisibleBeforeMinimize;
     private StatsWindow? statsWindow;
 
     public MainWindow()
@@ -145,6 +147,11 @@ public partial class MainWindow : Window
         IntPtr lParam,
         ref bool handled)
     {
+        if (message is WmNcLeftButtonDown or WmNcRightButtonDown or WmNcMiddleButtonDown)
+        {
+            HideStatsWindow();
+        }
+
         if (message == WmNcHitTest)
         {
             var resizeResult = GetResizeHitTest(hwnd, lParam);
@@ -177,6 +184,8 @@ public partial class MainWindow : Window
 
     private void Window_PreviewMouseDown(object sender, MouseButtonEventArgs e)
     {
+        HideStatsWindow();
+
         if (e.ChangedButton == MouseButton.Middle)
         {
             ToggleTracking();
@@ -188,6 +197,11 @@ public partial class MainWindow : Window
         {
             DragMove();
         }
+    }
+
+    private void Window_Deactivated(object? sender, EventArgs e)
+    {
+        HideStatsWindow();
     }
 
     private void ToggleMenuItem_Click(object sender, RoutedEventArgs e)
@@ -266,20 +280,19 @@ public partial class MainWindow : Window
 
     private void StatsMenuItem_Click(object sender, RoutedEventArgs e)
     {
-        if (statsWindow?.IsVisible == true)
-        {
-            statsWindow.Hide();
-            return;
-        }
-
         statsWindow ??= new StatsWindow
         {
             Owner = this,
         };
         statsWindow.Opacity = Opacity;
         statsWindow.UpdateRows(dailyStatsStore.GetLastSevenDays());
-        PositionStatsWindow();
+        PositionStatsWindow(includeHidden: true);
         statsWindow.Show();
+    }
+
+    private void HideStatsWindow()
+    {
+        statsWindow?.Hide();
     }
 
     private void OpacityMenuItem_Click(object sender, RoutedEventArgs e)
@@ -295,6 +308,7 @@ public partial class MainWindow : Window
 
     private void MinimizeMenuItem_Click(object sender, RoutedEventArgs e)
     {
+        HideStatsWindow();
         ShowInTaskbar = true;
         WindowState = WindowState.Minimized;
     }
@@ -303,21 +317,15 @@ public partial class MainWindow : Window
     {
         if (WindowState == WindowState.Minimized)
         {
-            statsWasVisibleBeforeMinimize = statsWindow?.IsVisible == true;
-            statsWindow?.Hide();
+            HideStatsWindow();
             return;
         }
 
         if (WindowState == WindowState.Normal)
         {
+            HideStatsWindow();
             ShowInTaskbar = false;
             Topmost = true;
-            if (statsWasVisibleBeforeMinimize && statsWindow != null)
-            {
-                PositionStatsWindow();
-                statsWindow.Show();
-            }
-            statsWasVisibleBeforeMinimize = false;
         }
     }
 
@@ -551,9 +559,11 @@ public partial class MainWindow : Window
         key.SetValue(HeightRegistryValue, (int)Math.Round(bounds.Height), RegistryValueKind.DWord);
     }
 
-    private void PositionStatsWindow()
+    private void PositionStatsWindow(bool includeHidden = false)
     {
-        if (statsWindow == null || WindowState == WindowState.Minimized)
+        if (statsWindow == null ||
+            (!includeHidden && !statsWindow.IsVisible) ||
+            WindowState == WindowState.Minimized)
         {
             return;
         }

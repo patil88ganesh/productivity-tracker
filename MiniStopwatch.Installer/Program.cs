@@ -190,7 +190,9 @@ internal static class Program
     {
         using var key = Registry.CurrentUser.CreateSubKey(UninstallRegistryPath);
         key.SetValue("DisplayName", ProductName);
-        key.SetValue("DisplayVersion", "2.7.0");
+        var displayVersion = typeof(Program).Assembly.GetName().Version?.ToString(3)
+            ?? throw new InvalidOperationException("Installer version metadata is unavailable.");
+        key.SetValue("DisplayVersion", displayVersion);
         key.SetValue("Publisher", ProductName);
         key.SetValue("InstallLocation", InstallDirectory);
         key.SetValue("DisplayIcon", Path.Combine(InstallDirectory, AppExecutable));

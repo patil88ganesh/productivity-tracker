@@ -199,7 +199,6 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
     private var pendingStatsPersistenceError: Error?
     private var lastStatsPersistenceErrorSignature: String?
     private var statsWidgetVisible = false
-    private var statsWasVisibleBeforeMiniaturize = false
 
     private let toggleMenuItem = NSMenuItem()
     private let exitTimerMenuItem = NSMenuItem()
@@ -294,6 +293,7 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
         refreshTimer?.invalidate()
         flashTimer?.invalidate()
         focusSocketServer?.stop()
+        statsWidgetController.hide()
         statsWidgetController.close()
     }
 
@@ -304,9 +304,6 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
         showWindow(nil)
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
-        if statsWidgetVisible && window?.isMiniaturized != true {
-            showStatsWidget()
-        }
     }
 
     func setSessionLocked(_ locked: Bool) {
@@ -328,6 +325,7 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
     func prepareForTermination() {
         saveState()
         recordStats(forceSave: true)
+        statsWidgetController.hide()
         statsWidgetController.close()
     }
 
@@ -343,18 +341,12 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
     }
 
     func windowWillMiniaturize(_ notification: Notification) {
-        statsWasVisibleBeforeMiniaturize =
-            statsWidgetVisible && statsWidgetController.window?.isVisible == true
-        statsWidgetController.window?.orderOut(nil)
+        dismissStatsWidget()
     }
 
     func windowDidDeminiaturize(_ notification: Notification) {
         window?.level = .floating
         statsWidgetController.window?.level = .floating
-        if statsWasVisibleBeforeMiniaturize && statsWidgetVisible {
-            showStatsWidget()
-        }
-        statsWasVisibleBeforeMiniaturize = false
     }
 
     @objc private func toggleTracking() {
@@ -431,14 +423,16 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
-    @objc private func toggleStatsWidget() {
-        statsWidgetVisible.toggle()
-        statsMenuItem.state = statsWidgetVisible ? .on : .off
-        if statsWidgetVisible && window?.isMiniaturized != true {
-            showStatsWidget()
-        } else {
-            statsWidgetController.window?.orderOut(nil)
-        }
+    @objc private func openStatsWidget() {
+        statsWidgetVisible = true
+        statsMenuItem.state = .on
+        showStatsWidget()
+    }
+
+    func dismissStatsWidget() {
+        statsWidgetController.hide()
+        statsWidgetVisible = false
+        statsMenuItem.state = .off
     }
 
     @objc private func showBrowserExtensionSetup() {
@@ -494,7 +488,7 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
 
         statsMenuItem.title = "My stats (mini)"
         statsMenuItem.target = self
-        statsMenuItem.action = #selector(toggleStatsWidget)
+        statsMenuItem.action = #selector(openStatsWidget)
         menu.addItem(statsMenuItem)
 
         let focusMenu = NSMenu()
@@ -761,7 +755,9 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
         statsWindow.level = parentWindow.level
         statsWindow.alphaValue = parentWindow.alphaValue
         positionStatsWidget()
-        statsWindow.orderFront(nil)
+        statsWidgetController.show { [weak self] in
+            self?.dismissStatsWidget()
+        }
     }
 
     private func positionStatsWidget() {
