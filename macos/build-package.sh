@@ -36,6 +36,8 @@ build_architecture() {
     -whole-module-optimization \
     -target "$architecture-apple-macosx12.0" \
     "$ROOT/macos/Sources/TimerEngine.swift" \
+    "$ROOT/macos/Sources/DailyStats.swift" \
+    "$ROOT/macos/Sources/StatsWidget.swift" \
     "$ROOT/macos/Sources/FocusProtection.swift" \
     "$ROOT/macos/Sources/TimerWindow.swift" \
     "$ROOT/macos/Sources/AppDelegate.swift" \

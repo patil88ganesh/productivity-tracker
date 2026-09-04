@@ -43,3 +43,11 @@ card to activate the latest domain list and connection fixes.
 The extension sends only a boolean active/inactive state. The native host
 forwards it over a user-only Unix domain socket; URLs and browsing history never
 leave the browser.
+
+## My stats (mini)
+
+Choose **My stats (mini)** from the timer's right-click menu to toggle the
+attached seven-day report. It lists today and the previous six local calendar
+days as `Date | Day | Hours`. Only active running time is counted; paused,
+locked, Focus Protection, and app-closed time are excluded. Days with no active
+tracked time display `NA`.

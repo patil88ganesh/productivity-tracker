@@ -190,7 +190,7 @@ internal static class Program
     {
         using var key = Registry.CurrentUser.CreateSubKey(UninstallRegistryPath);
         key.SetValue("DisplayName", ProductName);
-        key.SetValue("DisplayVersion", "2.6.0");
+        key.SetValue("DisplayVersion", "2.7.0");
         key.SetValue("Publisher", ProductName);
         key.SetValue("InstallLocation", InstallDirectory);
         key.SetValue("DisplayIcon", Path.Combine(InstallDirectory, AppExecutable));

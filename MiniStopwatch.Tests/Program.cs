@@ -21,6 +21,12 @@ var tests = new (string Name, Action Run)[]
     ("Distracting site pauses and resumes tracking", DistractingSitePausesAndResumesTracking),
     ("Lock and distracting site require both to clear", AutomaticPauseReasonsMustBothClear),
     ("Manual stop during automatic pause prevents resume", ManualStopDuringAutomaticPausePreventsResume),
+    ("Daily stats count only active tracking", DailyStatsCountOnlyActiveTracking),
+    ("Daily stats split tracking at local midnight", DailyStatsSplitAtLocalMidnight),
+    ("Daily stats report missing days as NA", DailyStatsReportMissingDaysAsNa),
+    ("Daily stats cap delayed countdown samples", DailyStatsCapDelayedCountdownSamples),
+    ("Daily stats cap countdown at midnight deadline", DailyStatsCapCountdownAtMidnightDeadline),
+    ("Daily stats use earliest ambiguous midnight", DailyStatsUseEarliestAmbiguousMidnight),
 };
 
 var failures = new List<string>();
@@ -318,6 +324,136 @@ static void ManualStopDuringAutomaticPausePreventsResume()
 
     False(tracker.IsRunning);
     False(tracker.IsAutomaticallyPaused);
+}
+
+static void DailyStatsCountOnlyActiveTracking()
+{
+    var stats = new DailyStatsAccumulator(TimeZoneInfo.Utc);
+    var timestamp = new DateTimeOffset(2026, 9, 4, 9, 0, 0, TimeSpan.Zero);
+    var monotonic = TimeSpan.Zero;
+
+    stats.Sample(timestamp, monotonic, isRunning: false);
+    stats.Sample(timestamp, monotonic, isRunning: true);
+
+    timestamp += TimeSpan.FromMinutes(45);
+    monotonic += TimeSpan.FromMinutes(45);
+    stats.Sample(timestamp, monotonic, isRunning: false);
+
+    timestamp += TimeSpan.FromHours(2);
+    monotonic += TimeSpan.FromHours(2);
+    stats.Sample(timestamp, monotonic, isRunning: true);
+
+    timestamp += TimeSpan.FromMinutes(30);
+    monotonic += TimeSpan.FromMinutes(30);
+    stats.Sample(timestamp, monotonic, isRunning: false);
+
+    var report = stats.GetReport(new DateOnly(2026, 9, 4), 1);
+    Equal(TimeSpan.FromMinutes(75), report[0].TrackedTime);
+}
+
+static void DailyStatsSplitAtLocalMidnight()
+{
+    var stats = new DailyStatsAccumulator(TimeZoneInfo.Utc);
+    var timestamp = new DateTimeOffset(2026, 9, 3, 23, 30, 0, TimeSpan.Zero);
+
+    stats.Sample(timestamp, TimeSpan.Zero, isRunning: true);
+    stats.Sample(
+        timestamp.AddHours(1),
+        TimeSpan.FromHours(1),
+        isRunning: false);
+
+    var report = stats.GetReport(new DateOnly(2026, 9, 4), 2);
+    Equal(new DateOnly(2026, 9, 4), report[0].Date);
+    Equal(TimeSpan.FromMinutes(30), report[0].TrackedTime);
+    Equal(new DateOnly(2026, 9, 3), report[1].Date);
+    Equal(TimeSpan.FromMinutes(30), report[1].TrackedTime);
+}
+
+static void DailyStatsReportMissingDaysAsNa()
+{
+    var stats = new DailyStatsAccumulator(
+        TimeZoneInfo.Utc,
+        new Dictionary<DateOnly, TimeSpan>
+        {
+            [new DateOnly(2026, 9, 2)] = TimeSpan.FromMinutes(90),
+        });
+
+    var report = stats.GetReport(new DateOnly(2026, 9, 4), 3);
+
+    Equal(new DateOnly(2026, 9, 4), report[0].Date);
+    Equal<TimeSpan?>(null, report[0].TrackedTime);
+    Equal(new DateOnly(2026, 9, 3), report[1].Date);
+    Equal<TimeSpan?>(null, report[1].TrackedTime);
+    Equal(new DateOnly(2026, 9, 2), report[2].Date);
+    Equal(TimeSpan.FromMinutes(90), report[2].TrackedTime);
+}
+
+static void DailyStatsCapDelayedCountdownSamples()
+{
+    var stats = new DailyStatsAccumulator(TimeZoneInfo.Utc);
+    var timestamp = new DateTimeOffset(2026, 9, 4, 9, 0, 0, TimeSpan.Zero);
+
+    stats.Sample(
+        timestamp,
+        TimeSpan.Zero,
+        isRunning: true,
+        maximumRunningDuration: TimeSpan.FromMinutes(5));
+    stats.Sample(
+        timestamp.AddMinutes(10),
+        TimeSpan.FromMinutes(10),
+        isRunning: false);
+
+    var report = stats.GetReport(new DateOnly(2026, 9, 4), 1);
+    Equal(TimeSpan.FromMinutes(5), report[0].TrackedTime);
+}
+
+static void DailyStatsCapCountdownAtMidnightDeadline()
+{
+    var stats = new DailyStatsAccumulator(TimeZoneInfo.Utc);
+    var timestamp = new DateTimeOffset(2026, 9, 4, 23, 58, 0, TimeSpan.Zero);
+
+    stats.Sample(
+        timestamp,
+        TimeSpan.Zero,
+        isRunning: true,
+        maximumRunningDuration: TimeSpan.FromMinutes(5));
+    stats.Sample(
+        timestamp.AddMinutes(10),
+        TimeSpan.FromMinutes(10),
+        isRunning: false);
+
+    var report = stats.GetReport(new DateOnly(2026, 9, 5), 2);
+    Equal(TimeSpan.FromMinutes(3), report[0].TrackedTime);
+    Equal(TimeSpan.FromMinutes(2), report[1].TrackedTime);
+}
+
+static void DailyStatsUseEarliestAmbiguousMidnight()
+{
+    var timeZone = TimeZoneInfo.FindSystemTimeZoneById("Cuba Standard Time");
+    var stats = new DailyStatsAccumulator(timeZone);
+    var start = new DateTimeOffset(
+        2026,
+        10,
+        31,
+        23,
+        30,
+        0,
+        TimeSpan.FromHours(-4));
+    var end = new DateTimeOffset(
+        2026,
+        11,
+        1,
+        1,
+        30,
+        0,
+        TimeSpan.FromHours(-5));
+
+    stats.Sample(start, TimeSpan.Zero, isRunning: true);
+    stats.Sample(end, TimeSpan.FromHours(3), isRunning: false);
+
+    var report = stats.GetReport(new DateOnly(2026, 11, 1), 2);
+    Equal(TimeSpan.FromMinutes(150), report[0].TrackedTime);
+    Equal(TimeSpan.FromMinutes(30), report[1].TrackedTime);
 }
 
 static void Equal<T>(T expected, T actual)

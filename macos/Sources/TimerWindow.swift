@@ -187,6 +187,8 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
 
     private let engine = TimerEngine()
     private let displayView: TimerDisplayView
+    private let statsRecorder: DailyStatsRecorder
+    private let statsWidgetController = StatsWidgetController()
     private let defaults = UserDefaults.standard
     private var refreshTimer: Foundation.Timer?
     private var flashTimer: Foundation.Timer?
@@ -194,15 +196,31 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
     private var browserReportsDistractingSite = false
     private var focusSocketServer: FocusSocketServer?
     private var focusProtectionEnabled: Bool
+    private var pendingStatsPersistenceError: Error?
+    private var lastStatsPersistenceErrorSignature: String?
+    private var statsWidgetVisible = false
+    private var statsWasVisibleBeforeMiniaturize = false
 
     private let toggleMenuItem = NSMenuItem()
     private let exitTimerMenuItem = NSMenuItem()
     private let focusProtectionMenuItem = NSMenuItem()
+    private let statsMenuItem = NSMenuItem()
     private var opacityMenuItems: [NSMenuItem] = []
 
     init() {
         focusProtectionEnabled = UserDefaults.standard.bool(forKey: Settings.focusProtection)
         displayView = TimerDisplayView(frame: NSRect(x: 0, y: 0, width: 184, height: 58))
+        let statsStore = DailyStatsStore()
+        do {
+            statsRecorder = try DailyStatsRecorder(store: statsStore)
+        } catch {
+            statsRecorder = DailyStatsRecorder(
+                store: statsStore,
+                activeSecondsByDate: [:],
+                persistenceEnabled: false
+            )
+            pendingStatsPersistenceError = error
+        }
 
         let window = NSWindow(
             contentRect: displayView.frame,
@@ -236,12 +254,17 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
         }
 
         focusSocketServer = FocusSocketServer { [weak self] active in
-            self?.browserReportsDistractingSite = active
-            self?.engine.setAutomaticPause(
-                .distractingWebsite,
-                active: (self?.focusProtectionEnabled ?? false) && active
-            )
-            self?.refreshDisplay()
+            guard let self else {
+                return
+            }
+            self.browserReportsDistractingSite = active
+            self.performEngineTransition {
+                self.engine.setAutomaticPause(
+                    .distractingWebsite,
+                    active: self.focusProtectionEnabled && active
+                )
+            }
+            self.refreshDisplay()
         }
         do {
             try focusSocketServer?.start()
@@ -256,6 +279,11 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
             RunLoop.main.add(refreshTimer, forMode: .common)
         }
         refreshDisplay()
+        if let error = pendingStatsPersistenceError {
+            DispatchQueue.main.async { [weak self] in
+                self?.reportStatsPersistenceError(error)
+            }
+        }
     }
 
     required init?(coder: NSCoder) {
@@ -266,6 +294,7 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
         refreshTimer?.invalidate()
         flashTimer?.invalidate()
         focusSocketServer?.stop()
+        statsWidgetController.close()
     }
 
     func showWindowAndActivate() {
@@ -275,14 +304,20 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
         showWindow(nil)
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        if statsWidgetVisible && window?.isMiniaturized != true {
+            showStatsWidget()
+        }
     }
 
     func setSessionLocked(_ locked: Bool) {
-        engine.setAutomaticPause(.sessionLocked, active: locked)
+        performEngineTransition {
+            engine.setAutomaticPause(.sessionLocked, active: locked)
+        }
         refreshDisplay()
     }
 
     func saveState() {
+        recordStats()
         guard let window else {
             return
         }
@@ -290,30 +325,53 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
         defaults.synchronize()
     }
 
+    func prepareForTermination() {
+        saveState()
+        recordStats(forceSave: true)
+        statsWidgetController.close()
+    }
+
     func windowDidMove(_ notification: Notification) {
         saveState()
+        positionStatsWidget()
     }
 
     func windowDidResize(_ notification: Notification) {
         saveState()
         displayView.needsDisplay = true
+        positionStatsWidget()
+    }
+
+    func windowWillMiniaturize(_ notification: Notification) {
+        statsWasVisibleBeforeMiniaturize =
+            statsWidgetVisible && statsWidgetController.window?.isVisible == true
+        statsWidgetController.window?.orderOut(nil)
     }
 
     func windowDidDeminiaturize(_ notification: Notification) {
         window?.level = .floating
+        statsWidgetController.window?.level = .floating
+        if statsWasVisibleBeforeMiniaturize && statsWidgetVisible {
+            showStatsWidget()
+        }
+        statsWasVisibleBeforeMiniaturize = false
     }
 
     @objc private func toggleTracking() {
         if engine.isTimerCompleted {
             stopCompletionAlert()
         }
-        engine.toggle()
+        performEngineTransition {
+            engine.toggle()
+        }
         refreshDisplay()
     }
 
     @objc private func resetTracking() {
         stopCompletionAlert()
-        engine.reset()
+        performEngineTransition {
+            engine.reset()
+        }
         refreshDisplay()
     }
 
@@ -326,7 +384,9 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
             return
         }
         stopCompletionAlert()
-        engine.startTimer(duration: duration)
+        performEngineTransition {
+            engine.startTimer(duration: duration)
+        }
         refreshDisplay()
     }
 
@@ -339,13 +399,17 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
             return
         }
         stopCompletionAlert()
-        engine.addAndStart(duration: duration)
+        performEngineTransition {
+            engine.addAndStart(duration: duration)
+        }
         refreshDisplay()
     }
 
     @objc private func exitTimer() {
         stopCompletionAlert()
-        engine.exitTimer()
+        performEngineTransition {
+            engine.exitTimer()
+        }
         refreshDisplay()
     }
 
@@ -353,15 +417,27 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
         focusProtectionEnabled.toggle()
         defaults.set(focusProtectionEnabled, forKey: Settings.focusProtection)
         focusProtectionMenuItem.state = focusProtectionEnabled ? .on : .off
-        engine.setAutomaticPause(
-            .distractingWebsite,
-            active: focusProtectionEnabled && browserReportsDistractingSite
-        )
+        performEngineTransition {
+            engine.setAutomaticPause(
+                .distractingWebsite,
+                active: focusProtectionEnabled && browserReportsDistractingSite
+            )
+        }
         refreshDisplay()
 
         if focusProtectionEnabled && !defaults.bool(forKey: Settings.browserSetupShown) {
             defaults.set(true, forKey: Settings.browserSetupShown)
             showBrowserExtensionSetup()
+        }
+    }
+
+    @objc private func toggleStatsWidget() {
+        statsWidgetVisible.toggle()
+        statsMenuItem.state = statsWidgetVisible ? .on : .off
+        if statsWidgetVisible && window?.isMiniaturized != true {
+            showStatsWidget()
+        } else {
+            statsWidgetController.window?.orderOut(nil)
         }
     }
 
@@ -416,6 +492,11 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
         exitTimerMenuItem.action = #selector(exitTimer)
         menu.addItem(exitTimerMenuItem)
 
+        statsMenuItem.title = "My stats (mini)"
+        statsMenuItem.target = self
+        statsMenuItem.action = #selector(toggleStatsWidget)
+        menu.addItem(statsMenuItem)
+
         let focusMenu = NSMenu()
         focusProtectionMenuItem.title = "Pause on selected websites"
         focusProtectionMenuItem.target = self
@@ -460,7 +541,12 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
     }
 
     private func refreshDisplay() {
-        if engine.update() {
+        let sampleDate = Date()
+        let sampleUptime = ProcessInfo.processInfo.systemUptime
+        recordStats(at: sampleDate, uptime: sampleUptime)
+        let completed = engine.update()
+        recordStats(at: sampleDate, uptime: sampleUptime)
+        if completed {
             startCompletionAlert()
         }
 
@@ -506,6 +592,7 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
             )
             displayView.toolTip = "Paused"
         }
+        statsWidgetController.update(rows: statsRecorder.rows(for: sampleDate))
     }
 
     private func startCompletionAlert() {
@@ -629,10 +716,103 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
     }
 
     private func applyOpacity(_ opacity: Int) {
-        window?.alphaValue = CGFloat(opacity) / 100
+        let alpha = CGFloat(opacity) / 100
+        window?.alphaValue = alpha
+        statsWidgetController.window?.alphaValue = alpha
         for item in opacityMenuItems {
             item.state = (item.representedObject as? Int) == opacity ? .on : .off
         }
+    }
+
+    private func performEngineTransition(_ transition: () -> Void) {
+        let date = Date()
+        let uptime = ProcessInfo.processInfo.systemUptime
+        recordStats(at: date, uptime: uptime)
+        transition()
+        recordStats(at: date, uptime: uptime)
+    }
+
+    private func recordStats(
+        at date: Date = Date(),
+        uptime: TimeInterval = ProcessInfo.processInfo.systemUptime,
+        forceSave: Bool = false
+    ) {
+        do {
+            try statsRecorder.sample(
+                at: date,
+                uptime: uptime,
+                isRunning: engine.isRunning,
+                maximumRunningDuration: maximumStatsDuration,
+                forceSave: forceSave
+            )
+        } catch {
+            reportStatsPersistenceError(error)
+        }
+    }
+
+    private func showStatsWidget() {
+        guard let parentWindow = window,
+              let statsWindow = statsWidgetController.window else {
+            return
+        }
+        if statsWindow.parent !== parentWindow {
+            parentWindow.addChildWindow(statsWindow, ordered: .above)
+        }
+        statsWindow.level = parentWindow.level
+        statsWindow.alphaValue = parentWindow.alphaValue
+        positionStatsWidget()
+        statsWindow.orderFront(nil)
+    }
+
+    private func positionStatsWidget() {
+        guard statsWidgetVisible,
+              window?.isMiniaturized != true,
+              let parentFrame = window?.frame,
+              let statsWindow = statsWidgetController.window else {
+            return
+        }
+        let width = min(
+            max(parentFrame.width, StatsWidgetController.minimumWidth),
+            320
+        )
+        let visibleFrame = window?.screen?.visibleFrame ?? NSScreen.main?.visibleFrame
+        let desiredX = parentFrame.midX - width / 2
+        let x = visibleFrame.map {
+            min(max(desiredX, $0.minX), $0.maxX - width)
+        } ?? desiredX
+        let belowY = parentFrame.minY - StatsWidgetController.height + 3
+        let y = visibleFrame.map {
+            belowY >= $0.minY
+                ? belowY
+                : min(parentFrame.maxY - 3, $0.maxY - StatsWidgetController.height)
+        } ?? belowY
+        let frame = NSRect(
+            x: x,
+            y: y,
+            width: width,
+            height: StatsWidgetController.height
+        )
+        statsWindow.setFrame(frame, display: true)
+    }
+
+    private var maximumStatsDuration: TimeInterval? {
+        engine.isRunning && engine.isTimerMode
+            ? engine.displayTime
+            : nil
+    }
+
+    private func reportStatsPersistenceError(_ error: Error) {
+        let localizedError = error as? LocalizedError
+        let signature = [
+            error.localizedDescription,
+            localizedError?.failureReason ?? "",
+            localizedError?.recoverySuggestion ?? "",
+        ].joined(separator: "\n")
+        guard signature != lastStatsPersistenceErrorSignature else {
+            return
+        }
+        lastStatsPersistenceErrorSignature = signature
+        showError(title: "Statistics persistence failed", error: error)
     }
 
     private func restoreWindowFrame() {

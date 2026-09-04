@@ -3,15 +3,15 @@
 Productivity Tracker is a compact, semi-transparent, always-on-top stopwatch
 and countdown timer for Windows and macOS.
 
-## Downloads — version 2.6.0
+## Downloads — version 2.7.0
 
-- **Windows 10/11 x64:** [ProductivityTracker-Setup.exe](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.6.0/ProductivityTracker-Setup.exe)
-- **macOS 12+ Apple silicon:** [ProductivityTracker-macOS-arm64.app.zip](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.6.0/ProductivityTracker-macOS-arm64.app.zip)
-- **macOS 12+ Intel:** [ProductivityTracker-macOS-x64.app.zip](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.6.0/ProductivityTracker-macOS-x64.app.zip)
+- **Windows 10/11 x64:** [ProductivityTracker-Setup.exe](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.7.0/ProductivityTracker-Setup.exe)
+- **macOS 12+ Apple silicon:** [ProductivityTracker-macOS-arm64.app.zip](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.7.0/ProductivityTracker-macOS-arm64.app.zip)
+- **macOS 12+ Intel:** [ProductivityTracker-macOS-x64.app.zip](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.7.0/ProductivityTracker-macOS-x64.app.zip)
 
 Release downloads will be published under:
 
-`https://github.com/patil88ganesh/productivity-tracker/releases/tag/v2.6.0`
+`https://github.com/patil88ganesh/productivity-tracker/releases/tag/v2.7.0`
 
 The macOS build is a beta with an ad-hoc signature and is not notarized. After
 extracting the zip, move `ProductivityTracker.app` to Applications and try to
@@ -28,8 +28,8 @@ confirm **Open**. Do not bypass Gatekeeper globally.
 - Drag any edge or corner to resize it; the digits scale automatically.
 - Hover over the clock for a highlighted surface, border, and shadow.
 - High-contrast status dots use saturated colors, an outline, and a soft glow.
-- Right-click for Pause/Resume, Reset, Add and Start, Set Timer, opacity,
-  Minimize, Focus Protection, and Exit.
+- Right-click for Pause/Resume, Reset, Add and Start, Set Timer, My stats
+  (mini), opacity, Minimize, Focus Protection, and Exit.
 - Add and Start accepts hours and minutes, adds them to the current stopwatch
   total, and immediately resumes counting.
 - Set Timer accepts hours, minutes, and seconds and starts a countdown.
@@ -40,6 +40,15 @@ confirm **Open**. Do not bypass Gatekeeper globally.
   resumes without counting locked time.
 - Session lock and Focus Protection are independent, overlapping automatic
   pause reasons. Tracking resumes only after every active reason clears.
+
+## My stats (mini)
+
+Choose **My stats (mini)** from the right-click menu to toggle a compact report
+attached below the tracker. It shows today and the previous six local calendar
+days as `Date | Day | Hours`. Hours are accumulated only while the stopwatch or
+countdown is actively running; manual pause, computer lock, Focus Protection,
+and app-closed time are excluded. A day with no active tracked time displays
+`NA`. Statistics begin with version 2.7.0 and persist locally across restarts.
 
 ## Focus Protection
 

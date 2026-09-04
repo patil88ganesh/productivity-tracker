@@ -15,6 +15,7 @@
         WindowStartupLocation="CenterScreen"
         PreviewMouseDown="Window_PreviewMouseDown"
         Closed="Window_Closed"
+        LocationChanged="Window_LocationChanged"
         SizeChanged="Window_SizeChanged"
         StateChanged="Window_StateChanged"
         SourceInitialized="Window_SourceInitialized">
@@ -65,6 +66,7 @@
                           IsCheckable="True"
                           Click="OpacityMenuItem_Click"/>
             </MenuItem>
+            <MenuItem Header="My stats (mini)" Click="StatsMenuItem_Click"/>
             <MenuItem Header="Minimize" Click="MinimizeMenuItem_Click"/>
             <MenuItem Header="Exit" Click="ExitMenuItem_Click"/>
         </ContextMenu>

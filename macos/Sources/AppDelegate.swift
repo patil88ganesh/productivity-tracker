@@ -14,7 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        timerWindowController?.saveState()
+        timerWindowController?.prepareForTermination()
         let workspaceCenter = NSWorkspace.shared.notificationCenter
         for observer in workspaceObservers {
             workspaceCenter.removeObserver(observer)

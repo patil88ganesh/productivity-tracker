@@ -39,8 +39,10 @@ public partial class MainWindow : Window
     private const uint FlashWindowAll = 0x00000003;
     private const double DefaultWidth = 184;
     private const double DefaultHeight = 58;
+    private const double StatsWindowGap = 4;
 
     private readonly TrackingController tracker = new(new SystemMonotonicClock());
+    private readonly DailyStatsStore dailyStatsStore;
     private readonly DispatcherTimer displayTimer;
     private readonly DispatcherTimer completionFlashTimer;
     private readonly MenuItem[] opacityMenuItems;
@@ -67,10 +69,13 @@ public partial class MainWindow : Window
     private bool isClosing;
     private bool socialMediaPauseEnabled;
     private bool browserReportsDistractingSite;
+    private bool statsWasVisibleBeforeMinimize;
+    private StatsWindow? statsWindow;
 
     public MainWindow()
     {
         InitializeComponent();
+        dailyStatsStore = DailyStatsStore.Load(ReportStatsPersistenceError);
 
         opacityMenuItems =
         [
@@ -116,9 +121,12 @@ public partial class MainWindow : Window
     private void Window_Closed(object? sender, EventArgs e)
     {
         isClosing = true;
+        dailyStatsStore.Sample(tracker.IsRunning, GetMaximumStatsDuration());
+        dailyStatsStore.Save();
         displayTimer.Stop();
         completionFlashTimer.Stop();
         socialMediaPauseBridge.Dispose();
+        statsWindow?.Close();
         SaveWindowSize();
 
         var handle = new WindowInteropHelper(this).Handle;
@@ -256,6 +264,24 @@ public partial class MainWindow : Window
         ShowBrowserExtensionSetup();
     }
 
+    private void StatsMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (statsWindow?.IsVisible == true)
+        {
+            statsWindow.Hide();
+            return;
+        }
+
+        statsWindow ??= new StatsWindow
+        {
+            Owner = this,
+        };
+        statsWindow.Opacity = Opacity;
+        statsWindow.UpdateRows(dailyStatsStore.GetLastSevenDays());
+        PositionStatsWindow();
+        statsWindow.Show();
+    }
+
     private void OpacityMenuItem_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not MenuItem { Tag: string tag } ||
@@ -275,16 +301,35 @@ public partial class MainWindow : Window
 
     private void Window_StateChanged(object? sender, EventArgs e)
     {
+        if (WindowState == WindowState.Minimized)
+        {
+            statsWasVisibleBeforeMinimize = statsWindow?.IsVisible == true;
+            statsWindow?.Hide();
+            return;
+        }
+
         if (WindowState == WindowState.Normal)
         {
             ShowInTaskbar = false;
             Topmost = true;
+            if (statsWasVisibleBeforeMinimize && statsWindow != null)
+            {
+                PositionStatsWindow();
+                statsWindow.Show();
+            }
+            statsWasVisibleBeforeMinimize = false;
         }
     }
 
     private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         ScaleDisplay();
+        PositionStatsWindow();
+    }
+
+    private void Window_LocationChanged(object? sender, EventArgs e)
+    {
+        PositionStatsWindow();
     }
 
     private void TrackerBorder_MouseEnter(object sender, MouseEventArgs e)
@@ -312,8 +357,10 @@ public partial class MainWindow : Window
 
     private void RefreshDisplay()
     {
+        dailyStatsStore.Sample(tracker.IsRunning, GetMaximumStatsDuration());
         if (tracker.Update())
         {
+            dailyStatsStore.Sample(tracker.IsRunning, GetMaximumStatsDuration());
             StartCompletionAlert();
         }
 
@@ -355,6 +402,11 @@ public partial class MainWindow : Window
             : tracker.IsRunning
                 ? "Running"
                 : "Paused";
+
+        if (statsWindow?.IsVisible == true)
+        {
+            statsWindow.UpdateRows(dailyStatsStore.GetLastSevenDays());
+        }
     }
 
     private void ToggleTracking()
@@ -450,6 +502,10 @@ public partial class MainWindow : Window
         }
 
         Opacity = opacityPercent / 100d;
+        if (statsWindow != null)
+        {
+            statsWindow.Opacity = Opacity;
+        }
         foreach (var item in opacityMenuItems)
         {
             item.IsChecked = item.Tag?.ToString() == opacityPercent.ToString();
@@ -493,6 +549,52 @@ public partial class MainWindow : Window
         using var key = Registry.CurrentUser.CreateSubKey(SettingsRegistryPath);
         key.SetValue(WidthRegistryValue, (int)Math.Round(bounds.Width), RegistryValueKind.DWord);
         key.SetValue(HeightRegistryValue, (int)Math.Round(bounds.Height), RegistryValueKind.DWord);
+    }
+
+    private void PositionStatsWindow()
+    {
+        if (statsWindow == null || WindowState == WindowState.Minimized)
+        {
+            return;
+        }
+
+        var trackerWidth = ActualWidth > 0 ? ActualWidth : Width;
+        var trackerHeight = ActualHeight > 0 ? ActualHeight : Height;
+        statsWindow.Width = Math.Max(236, Math.Min(trackerWidth, 420));
+
+        var workArea = GetCurrentMonitorWorkArea();
+        var left = Left + (trackerWidth - statsWindow.Width) / 2;
+        left = Math.Clamp(
+            left,
+            workArea.Left,
+            Math.Max(workArea.Left, workArea.Right - statsWindow.Width));
+
+        var below = Top + trackerHeight + StatsWindowGap;
+        var above = Top - statsWindow.Height - StatsWindowGap;
+        var top = below + statsWindow.Height <= workArea.Bottom
+            ? below
+            : Math.Max(workArea.Top, above);
+
+        statsWindow.Left = left;
+        statsWindow.Top = top;
+        statsWindow.Topmost = true;
+    }
+
+    private TimeSpan? GetMaximumStatsDuration()
+    {
+        return tracker.IsRunning && tracker.IsTimerMode
+            ? tracker.DisplayTime
+            : null;
+    }
+
+    private void ReportStatsPersistenceError(Exception exception)
+    {
+        MessageBox.Show(
+            this,
+            $"Daily statistics could not be loaded or saved.\n\n{exception.Message}",
+            "My stats unavailable",
+            MessageBoxButton.OK,
+            MessageBoxImage.Warning);
     }
 
     private static double ReadDimension(
@@ -652,6 +754,32 @@ public partial class MainWindow : Window
             borderThickness);
     }
 
+    private Rect GetCurrentMonitorWorkArea()
+    {
+        var handle = new WindowInteropHelper(this).Handle;
+        var monitor = MonitorFromWindow(handle, MonitorDefaultToNearest);
+        var monitorInfo = new NativeMonitorInfo
+        {
+            Size = (uint)Marshal.SizeOf<NativeMonitorInfo>(),
+        };
+        if (monitor == IntPtr.Zero || !GetMonitorInfo(monitor, ref monitorInfo))
+        {
+            return SystemParameters.WorkArea;
+        }
+
+        var dpiScale = GetDpiForWindow(handle) / 96d;
+        if (dpiScale <= 0)
+        {
+            dpiScale = 1;
+        }
+
+        return new Rect(
+            monitorInfo.WorkArea.Left / dpiScale,
+            monitorInfo.WorkArea.Top / dpiScale,
+            (monitorInfo.WorkArea.Right - monitorInfo.WorkArea.Left) / dpiScale,
+            (monitorInfo.WorkArea.Bottom - monitorInfo.WorkArea.Top) / dpiScale);
+    }
+
     [DllImport("Wtsapi32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool WTSRegisterSessionNotification(
@@ -673,6 +801,17 @@ public partial class MainWindow : Window
     [DllImport("user32.dll")]
     private static extern uint GetDpiForWindow(IntPtr windowHandle);
 
+    private const uint MonitorDefaultToNearest = 0x00000002;
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr MonitorFromWindow(IntPtr windowHandle, uint flags);
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetMonitorInfo(
+        IntPtr monitorHandle,
+        ref NativeMonitorInfo monitorInfo);
+
     [StructLayout(LayoutKind.Sequential)]
     private struct FlashWindowInfo
     {
@@ -681,6 +820,15 @@ public partial class MainWindow : Window
         public uint Flags;
         public uint Count;
         public uint Timeout;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NativeMonitorInfo
+    {
+        public uint Size;
+        public WindowRect MonitorArea;
+        public WindowRect WorkArea;
+        public uint Flags;
     }
 
     [StructLayout(LayoutKind.Sequential)]
