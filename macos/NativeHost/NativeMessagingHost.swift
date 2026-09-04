@@ -17,9 +17,9 @@ private final class ApplicationConnection {
         closeConnection()
     }
 
-    func send(active: Bool) {
+    func send(active: Bool) -> Bool {
         if socketFD < 0 && !connect() {
-            return
+            return false
         }
 
         let bytes: [UInt8] = active ? [49, 10] : [48, 10]
@@ -30,10 +30,11 @@ private final class ApplicationConnection {
             }
             if result <= 0 {
                 closeConnection()
-                return
+                return false
             }
             sent += result
         }
+        return true
     }
 
     private func connect() -> Bool {
@@ -116,16 +117,32 @@ private func readMessage(from input: FileHandle) throws -> Bool? {
     return active
 }
 
+private func writeMessage(active: Bool, appConnected: Bool, to output: FileHandle) throws {
+    let payload = try JSONSerialization.data(withJSONObject: [
+        "ok": true,
+        "active": active,
+        "appConnected": appConnected,
+    ])
+    guard payload.count <= maximumMessageLength else {
+        throw CocoaError(.fileWriteOutOfSpace)
+    }
+    var length = UInt32(payload.count).littleEndian
+    output.write(Data(bytes: &length, count: MemoryLayout<UInt32>.size))
+    output.write(payload)
+}
+
 let input = FileHandle.standardInput
+let output = FileHandle.standardOutput
 private let applicationConnection = ApplicationConnection()
 
 do {
     while let active = try readMessage(from: input) {
-        applicationConnection.send(active: active)
+        let connected = applicationConnection.send(active: active)
+        try writeMessage(active: active, appConnected: connected, to: output)
     }
-    applicationConnection.send(active: false)
+    _ = applicationConnection.send(active: false)
 } catch {
-    applicationConnection.send(active: false)
+    _ = applicationConnection.send(active: false)
     FileHandle.standardError.write(Data("Native messaging error: \(error)\n".utf8))
     exit(1)
 }

@@ -37,6 +37,9 @@ Edge in their user Application Support folders, opens the extension in Finder,
 and copies its path. Enable Developer mode on `chrome://extensions` or
 `edge://extensions`, choose **Load unpacked**, and select that folder.
 
+After installing an app update, select **Reload** on the unpacked extension's
+card to activate the latest domain list and connection fixes.
+
 The extension sends only a boolean active/inactive state. The native host
 forwards it over a user-only Unix domain socket; URLs and browsing history never
 leave the browser.

@@ -30,7 +30,7 @@
                       Click="ExitTimerMenuItem_Click"/>
             <MenuItem Header="Focus Protection">
                 <MenuItem x:Name="SocialMediaPauseMenuItem"
-                          Header="Pause on social media and WhatsApp"
+                          Header="Pause on selected websites"
                           IsCheckable="True"
                           Click="SocialMediaPauseMenuItem_Click"/>
                 <Separator/>

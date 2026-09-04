@@ -27,7 +27,12 @@ internal static class Program
                 var connected = SendToApplication(request != null && request.active);
                 WriteMessage(
                     output,
-                    Serializer.Serialize(new { ok = true, appConnected = connected }));
+                    Serializer.Serialize(new
+                    {
+                        ok = true,
+                        active = request != null && request.active,
+                        appConnected = connected,
+                    }));
             }
 
             SendToApplication(active: false);

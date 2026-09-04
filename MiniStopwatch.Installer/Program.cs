@@ -102,7 +102,7 @@ internal static class Program
         RemoveLegacyInstallation();
 
         ShowMessage(
-            "Productivity Tracker was installed.\n\nOptional Focus Protection is available from the right-click menu. It pauses tracking on supported social-media sites and WhatsApp Web after browser extension setup.",
+            "Productivity Tracker was installed.\n\nOptional Focus Protection is available from the right-click menu. It pauses tracking on selected distracting websites after browser extension setup. Reload an existing unpacked extension after upgrading.",
             ProductName,
             MessageBoxIcon.Information);
 
@@ -190,7 +190,7 @@ internal static class Program
     {
         using var key = Registry.CurrentUser.CreateSubKey(UninstallRegistryPath);
         key.SetValue("DisplayName", ProductName);
-        key.SetValue("DisplayVersion", "2.5.3");
+        key.SetValue("DisplayVersion", "2.6.0");
         key.SetValue("Publisher", ProductName);
         key.SetValue("InstallLocation", InstallDirectory);
         key.SetValue("DisplayIcon", Path.Combine(InstallDirectory, AppExecutable));

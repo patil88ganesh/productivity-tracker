@@ -562,7 +562,8 @@ public partial class MainWindow : Window
             "3. Select Load unpacked\n" +
             "4. Select the browser-extension folder\n\n" +
             "Google Chrome uses the same steps at chrome://extensions.\n\n" +
-            "The extension requests access only to supported social-media sites and WhatsApp Web.",
+            "If the extension was already loaded, select Reload on its extension card.\n\n" +
+            "The extension requests access only to the selected website domains.",
             "Set up Focus Protection",
             MessageBoxButton.OK,
             MessageBoxImage.Information);

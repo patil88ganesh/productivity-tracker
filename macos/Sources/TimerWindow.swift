@@ -417,7 +417,7 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
         menu.addItem(exitTimerMenuItem)
 
         let focusMenu = NSMenu()
-        focusProtectionMenuItem.title = "Pause on social media and WhatsApp"
+        focusProtectionMenuItem.title = "Pause on selected websites"
         focusProtectionMenuItem.target = self
         focusProtectionMenuItem.action = #selector(toggleFocusProtection)
         focusProtectionMenuItem.state = focusProtectionEnabled ? .on : .off

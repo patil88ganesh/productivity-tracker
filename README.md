@@ -3,15 +3,15 @@
 Productivity Tracker is a compact, semi-transparent, always-on-top stopwatch
 and countdown timer for Windows and macOS.
 
-## Downloads — version 2.5.3
+## Downloads — version 2.6.0
 
-- **Windows 10/11 x64:** [ProductivityTracker-Setup.exe](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.5.3/ProductivityTracker-Setup.exe)
-- **macOS 12+ Apple silicon:** [ProductivityTracker-macOS-arm64.app.zip](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.5.3/ProductivityTracker-macOS-arm64.app.zip)
-- **macOS 12+ Intel:** [ProductivityTracker-macOS-x64.app.zip](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.5.3/ProductivityTracker-macOS-x64.app.zip)
+- **Windows 10/11 x64:** [ProductivityTracker-Setup.exe](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.6.0/ProductivityTracker-Setup.exe)
+- **macOS 12+ Apple silicon:** [ProductivityTracker-macOS-arm64.app.zip](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.6.0/ProductivityTracker-macOS-arm64.app.zip)
+- **macOS 12+ Intel:** [ProductivityTracker-macOS-x64.app.zip](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.6.0/ProductivityTracker-macOS-x64.app.zip)
 
 Release downloads will be published under:
 
-`https://github.com/patil88ganesh/productivity-tracker/releases/tag/v2.5.3`
+`https://github.com/patil88ganesh/productivity-tracker/releases/tag/v2.6.0`
 
 The macOS build is a beta with an ad-hoc signature and is not notarized. After
 extracting the zip, move `ProductivityTracker.app` to Applications and try to
@@ -44,15 +44,19 @@ confirm **Open**. Do not bypass Gatekeeper globally.
 ## Focus Protection
 
 Focus Protection is optional and disabled by default. It supports Facebook,
-Instagram, X/Twitter, Reddit, LinkedIn, YouTube, TikTok, and WhatsApp Web in
-Google Chrome and Microsoft Edge.
+Instagram, X/Twitter, Reddit, LinkedIn, YouTube, TikTok, WhatsApp Web, Gmail,
+Google Drive, Docs, Sheets, and Slides in Google Chrome and Microsoft Edge.
 
 1. Right-click the clock.
 2. Choose **Focus Protection > Browser Extension Setup**.
 3. Open `chrome://extensions` or `edge://extensions`.
 4. Enable Developer mode and choose **Load unpacked**.
 5. Select the folder opened by Productivity Tracker.
-6. Enable **Pause on social media and WhatsApp** in the timer menu.
+6. Enable **Pause on selected websites** in the timer menu.
+
+After installing an app update, select **Reload** on the unpacked extension's
+card so its service worker, domain list, and native-host connection logic are
+refreshed.
 
 On Windows, setup registers the bundled .NET native messaging host. On macOS,
 setup copies the extension into the user's Application Support folder and
@@ -61,6 +65,8 @@ uses a user-only local Unix domain socket to communicate with the app.
 
 The extension evaluates supported domains locally and sends only a boolean
 active/inactive state. It does not send URLs, page content, or browsing history.
+It confirms delivery with the native host, retries disconnected signals, and
+shows an exclamation badge when the desktop app cannot be reached.
 
 ## Build Windows
 
