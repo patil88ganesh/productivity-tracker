@@ -59,8 +59,8 @@
 - **How verified**: Rebuilt the installer and inspected its version metadata.
 
 ## Re-review
-- **Issues Found**: 1 release-validation gate
-- **Verdict**: PENDING_MACOS_CI
+- **Issues Found**: 0
+- **Verdict**: CLEAN
 - **Evidence**: Every code finding from rounds 1 through 6 is resolved. Windows builds without warnings, all 25 Windows tests pass, both browser-extension suites pass, release metadata is consistent, and the installer derives version 2.7.1 from its assembly.
 
 ### Release-validation gate: macOS sources require native compilation
@@ -73,7 +73,7 @@
 ## Resolution Log (re-review)
 
 ### Release-validation gate
-- **Status**: Open
-- **What changed**: The reviewed cross-platform code is ready to push for native CI validation.
+- **Status**: Fixed
+- **What changed**: GitHub Actions run `33915095120` compiled and packaged both macOS architectures from commit `98694bf5ab27fc0af733974aae1b38029080cec9`.
 - **Why**: The macOS workflow runs only after the changed sources are pushed.
-- **How verified**: Pending successful `macos-15` arm64 and `macos-15-intel` x64 jobs.
+- **How verified**: The `macos-15` arm64 job and `macos-15-intel` x64 job both completed successfully and produced release artifacts.
