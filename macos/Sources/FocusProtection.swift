@@ -106,24 +106,16 @@ enum FocusProtectionInstaller {
 }
 
 final class FocusSocketServer {
-    private struct ClientState {
-        let active: Bool
-        let visitToken: String?
-        let sequence: Int
-    }
-
     private let queue = DispatchQueue(label: "ProductivityTracker.FocusSocket")
-    private let stateChanged: (Bool, String?) -> Void
+    private let stateChanged: (Bool) -> Void
     private var listener: DispatchSourceRead?
     private var listenerFD: Int32 = -1
     private var clientSources: [Int32: DispatchSourceRead] = [:]
     private var clientBuffers: [Int32: [UInt8]] = [:]
-    private var clientStates: [Int32: ClientState] = [:]
-    private var nextSequence = 0
+    private var clientStates: [Int32: Bool] = [:]
     private var lastAggregateState = false
-    private var lastAggregateVisitToken: String?
 
-    init(stateChanged: @escaping (Bool, String?) -> Void) {
+    init(stateChanged: @escaping (Bool) -> Void) {
         self.stateChanged = stateChanged
     }
 
@@ -215,6 +207,7 @@ final class FocusSocketServer {
 
             _ = Darwin.fcntl(clientFD, F_SETFL, O_NONBLOCK)
             clientBuffers[clientFD] = []
+            clientStates[clientFD] = false
 
             let source = DispatchSource.makeReadSource(fileDescriptor: clientFD, queue: queue)
             source.setEventHandler { [weak self] in
@@ -244,18 +237,7 @@ final class FocusSocketServer {
         while let newline = buffer.firstIndex(of: 10) {
             let line = buffer[..<newline]
             buffer.removeFirst(newline + 1)
-            let parts = String(decoding: line, as: UTF8.self)
-                .split(separator: "\t", maxSplits: 1, omittingEmptySubsequences: false)
-            let active = parts.first == "1"
-            let visitToken = parts.count == 2 && !parts[1].isEmpty
-                ? String(parts[1])
-                : nil
-            nextSequence += 1
-            clientStates[fd] = ClientState(
-                active: active,
-                visitToken: visitToken,
-                sequence: nextSequence
-            )
+            clientStates[fd] = line.first == 49
         }
         clientBuffers[fd] = buffer
         publishAggregateState()
@@ -270,22 +252,13 @@ final class FocusSocketServer {
     }
 
     private func publishAggregateState() {
-        let selectedState = clientStates.values
-            .filter(\.active)
-            .max(by: { $0.sequence < $1.sequence })
-            ?? clientStates.values
-                .filter { $0.visitToken != nil }
-                .max(by: { $0.sequence < $1.sequence })
-        let aggregate = selectedState?.active ?? false
-        let visitToken = selectedState?.visitToken
-        guard aggregate != lastAggregateState ||
-                visitToken != lastAggregateVisitToken else {
+        let aggregate = clientStates.values.contains(true)
+        guard aggregate != lastAggregateState else {
             return
         }
         lastAggregateState = aggregate
-        lastAggregateVisitToken = visitToken
         DispatchQueue.main.async { [stateChanged] in
-            stateChanged(aggregate, visitToken)
+            stateChanged(aggregate)
         }
     }
 }

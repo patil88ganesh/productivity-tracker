@@ -17,13 +17,12 @@ private final class ApplicationConnection {
         closeConnection()
     }
 
-    func send(active: Bool, visitToken: String?) -> Bool {
+    func send(active: Bool) -> Bool {
         if socketFD < 0 && !connect() {
             return false
         }
 
-        let signal = "\(active ? "1" : "0")\t\(visitToken ?? "")\n"
-        let bytes = [UInt8](signal.utf8)
+        let bytes: [UInt8] = active ? [49, 10] : [48, 10]
         var sent = 0
         while sent < bytes.count {
             let result = bytes.withUnsafeBytes { pointer in
@@ -105,16 +104,6 @@ private struct BrowserState {
     let visitToken: String?
 }
 
-private func normalizeVisitToken(_ value: Any?) -> String? {
-    guard let token = value as? String,
-          !token.isEmpty,
-          token.utf8.count <= 64,
-          token.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-") }) else {
-        return nil
-    }
-    return token
-}
-
 private func readMessage(from input: FileHandle) throws -> BrowserState? {
     guard let lengthData = try readExactly(4, from: input) else {
         return nil
@@ -130,10 +119,9 @@ private func readMessage(from input: FileHandle) throws -> BrowserState? {
           let active = object["active"] as? Bool else {
         throw CocoaError(.fileReadCorruptFile)
     }
-    return BrowserState(
-        active: active,
-        visitToken: normalizeVisitToken(object["visitToken"])
-    )
+    let candidate = object["visitToken"] as? String
+    let visitToken = candidate.flatMap { $0.utf8.count <= 64 ? $0 : nil }
+    return BrowserState(active: active, visitToken: visitToken)
 }
 
 private func writeMessage(
@@ -165,10 +153,7 @@ private let applicationConnection = ApplicationConnection()
 
 do {
     while let state = try readMessage(from: input) {
-        let connected = applicationConnection.send(
-            active: state.active,
-            visitToken: state.visitToken
-        )
+        let connected = applicationConnection.send(active: state.active)
         try writeMessage(
             active: state.active,
             visitToken: state.visitToken,
@@ -176,9 +161,9 @@ do {
             to: output
         )
     }
-    _ = applicationConnection.send(active: false, visitToken: nil)
+    _ = applicationConnection.send(active: false)
 } catch {
-    _ = applicationConnection.send(active: false, visitToken: nil)
+    _ = applicationConnection.send(active: false)
     FileHandle.standardError.write(Data("Native messaging error: \(error)\n".utf8))
     exit(1)
 }

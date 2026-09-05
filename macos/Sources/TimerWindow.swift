@@ -194,7 +194,6 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
     private var flashTimer: Foundation.Timer?
     private var flashStep = 0
     private var browserReportsDistractingSite = false
-    private var browserVisitToken: String?
     private var focusSocketServer: FocusSocketServer?
     private var focusProtectionEnabled: Bool
     private var pendingStatsPersistenceError: Error?
@@ -202,7 +201,6 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
     private var statsWidgetVisible = false
 
     private let toggleMenuItem = NSMenuItem()
-    private let continueCountingMenuItem = NSMenuItem()
     private let exitTimerMenuItem = NSMenuItem()
     private let focusProtectionMenuItem = NSMenuItem()
     private let statsMenuItem = NSMenuItem()
@@ -254,17 +252,15 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
             self?.toggleTracking()
         }
 
-        focusSocketServer = FocusSocketServer { [weak self] active, visitToken in
+        focusSocketServer = FocusSocketServer { [weak self] active in
             guard let self else {
                 return
             }
             self.browserReportsDistractingSite = active
-            self.browserVisitToken = visitToken
             self.performEngineTransition {
                 self.engine.setAutomaticPause(
                     .distractingWebsite,
-                    active: self.focusProtectionEnabled && active,
-                    visitToken: visitToken
+                    active: self.focusProtectionEnabled && active
                 )
             }
             self.refreshDisplay()
@@ -416,12 +412,8 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
         performEngineTransition {
             engine.setAutomaticPause(
                 .distractingWebsite,
-                active: focusProtectionEnabled && browserReportsDistractingSite,
-                visitToken: browserVisitToken
+                active: focusProtectionEnabled && browserReportsDistractingSite
             )
-            if !focusProtectionEnabled {
-                engine.cancelContinueCountingOnDistractingWebsite()
-            }
         }
         refreshDisplay()
 
@@ -429,17 +421,6 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
             defaults.set(true, forKey: Settings.browserSetupShown)
             showBrowserExtensionSetup()
         }
-    }
-
-    @objc private func continueCounting() {
-        performEngineTransition {
-            if engine.hasContinueCountingOverride {
-                engine.cancelContinueCountingOnDistractingWebsite()
-            } else {
-                engine.continueCountingOnDistractingWebsite()
-            }
-        }
-        refreshDisplay()
     }
 
     @objc private func openStatsWidget() {
@@ -491,17 +472,10 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
 
     private func configureMenu() {
         let menu = NSMenu()
-        menu.autoenablesItems = false
 
         toggleMenuItem.target = self
         toggleMenuItem.action = #selector(toggleTracking)
         menu.addItem(toggleMenuItem)
-
-        continueCountingMenuItem.title = "Continue counting"
-        continueCountingMenuItem.target = self
-        continueCountingMenuItem.action = #selector(continueCounting)
-        continueCountingMenuItem.isEnabled = false
-        menu.addItem(continueCountingMenuItem)
 
         menu.addItem(makeMenuItem("Reset", action: #selector(resetTracking)))
         menu.addItem(makeMenuItem("Add and Start…", action: #selector(addAndStart)))
@@ -574,12 +548,6 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
         displayView.displayText = formatDuration(displayTime)
         displayView.isCompleted = engine.isTimerCompleted
         exitTimerMenuItem.isHidden = !engine.isTimerMode
-        continueCountingMenuItem.isEnabled =
-            engine.hasContinueCountingOverride ||
-                engine.canContinueCountingOnDistractingWebsite
-        continueCountingMenuItem.title = engine.hasContinueCountingOverride
-            ? "Stop counting this site"
-            : "Continue counting"
 
         if engine.isAutomaticallyPaused {
             toggleMenuItem.title = "Remain Paused"
@@ -598,9 +566,7 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
                 blue: 0.33,
                 alpha: 1
             )
-            displayView.toolTip = engine.isContinuingCountingOnDistractingWebsite
-                ? "Running - selected website counted as productive"
-                : "Running"
+            displayView.toolTip = "Running"
         } else if engine.isTimerCompleted {
             toggleMenuItem.title = "Restart Timer"
             displayView.statusColor = NSColor(

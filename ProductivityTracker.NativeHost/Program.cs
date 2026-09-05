@@ -24,21 +24,24 @@ internal static class Program
             while (TryReadMessage(input, out var message))
             {
                 var request = Serializer.Deserialize<BrowserState>(message);
-                var active = request != null && request.active;
-                var visitToken = NormalizeVisitToken(request?.visitToken);
-                var connected = SendToApplication(active, visitToken);
+                var visitToken = request?.visitToken as string;
+                if (visitToken?.Length > 64)
+                {
+                    visitToken = null;
+                }
+                var connected = SendToApplication(request != null && request.active);
                 WriteMessage(
                     output,
                     Serializer.Serialize(new
                     {
                         ok = true,
-                        active,
+                        active = request != null && request.active,
                         visitToken,
                         appConnected = connected,
                     }));
             }
 
-            SendToApplication(active: false, visitToken: null);
+            SendToApplication(active: false);
             return 0;
         }
         catch (Exception exception)
@@ -104,7 +107,7 @@ internal static class Program
         }
     }
 
-    private static bool SendToApplication(bool active, string visitToken)
+    private static bool SendToApplication(bool active)
     {
         if (pipe == null || !pipe.IsConnected)
         {
@@ -119,8 +122,7 @@ internal static class Program
 
         try
         {
-            var signal = Encoding.ASCII.GetBytes(
-                $"{(active ? "1" : "0")}\t{visitToken ?? string.Empty}\n");
+            var signal = Encoding.ASCII.GetBytes(active ? "1\n" : "0\n");
             pipe.Write(signal, 0, signal.Length);
             pipe.Flush();
             return true;
@@ -131,28 +133,6 @@ internal static class Program
             pipe = null;
             return false;
         }
-    }
-
-    private static string NormalizeVisitToken(string visitToken)
-    {
-        if (string.IsNullOrEmpty(visitToken) || visitToken.Length > 64)
-        {
-            return null;
-        }
-
-        foreach (var character in visitToken)
-        {
-            var isAsciiLetterOrDigit =
-                character is >= 'a' and <= 'z' or
-                    >= 'A' and <= 'Z' or
-                    >= '0' and <= '9';
-            if (!isAsciiLetterOrDigit && character != '-')
-            {
-                return null;
-            }
-        }
-
-        return visitToken;
     }
 
     private static NamedPipeClientStream TryConnect()
@@ -183,6 +163,6 @@ internal static class Program
     {
         public bool active { get; set; }
 
-        public string visitToken { get; set; }
+        public object visitToken { get; set; }
     }
 }

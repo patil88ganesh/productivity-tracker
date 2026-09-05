@@ -13,15 +13,6 @@ public sealed class TrackingController
 
     public bool IsAutomaticallyPaused => stopwatch.IsAutomaticallyPaused;
 
-    public bool CanContinueCountingOnDistractingWebsite =>
-        stopwatch.CanContinueCountingOnDistractingWebsite;
-
-    public bool IsContinuingCountingOnDistractingWebsite =>
-        stopwatch.IsContinuingCountingOnDistractingWebsite;
-
-    public bool HasContinueCountingOverride =>
-        stopwatch.HasContinueCountingOverride;
-
     public bool IsTimerMode => TimerDuration.HasValue;
 
     public bool IsTimerCompleted { get; private set; }
@@ -127,20 +118,8 @@ public sealed class TrackingController
         stopwatch.OnSessionUnlocked();
     }
 
-    public void OnDistractingWebsiteChanged(
-        bool isActive,
-        string? visitToken)
+    public void OnDistractingWebsiteChanged(bool isActive)
     {
-        stopwatch.OnDistractingWebsiteChanged(isActive, visitToken);
-    }
-
-    public void ContinueCountingOnDistractingWebsite()
-    {
-        stopwatch.ContinueCountingOnDistractingWebsite();
-    }
-
-    public void CancelContinueCountingOnDistractingWebsite()
-    {
-        stopwatch.CancelContinueCountingOnDistractingWebsite();
+        stopwatch.OnDistractingWebsiteChanged(isActive);
     }
 }

@@ -22,27 +22,19 @@ function matchesDistractingHost(hostname) {
   );
 }
 
-function getDistractingSiteKey(url) {
+function isDistractingUrl(url) {
   if (!url) {
-    return undefined;
+    return false;
   }
 
   try {
-    const hostname = new URL(url).hostname.toLowerCase();
-    return [...DISTRACTING_HOSTS].find(
-      (host) => hostname === host || hostname.endsWith(`.${host}`),
-    );
+    return matchesDistractingHost(new URL(url).hostname);
   } catch {
-    return undefined;
+    return false;
   }
 }
 
-function isDistractingUrl(url) {
-  return Boolean(getDistractingSiteKey(url));
-}
-
 globalThis.ProductivityTrackerSites = {
-  getDistractingSiteKey,
   isDistractingUrl,
   matchesDistractingHost,
 };

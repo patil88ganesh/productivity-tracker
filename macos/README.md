@@ -40,10 +40,9 @@ and copies its path. Enable Developer mode on `chrome://extensions` or
 After installing an app update, select **Reload** on the unpacked extension's
 card to activate the latest domain list and connection fixes.
 
-The extension sends an active/inactive state plus a random opaque visit token.
-The native host forwards them over a user-only Unix domain socket. The token
-recognizes the same protected visit without exposing domains, URLs, page
-content, or browsing history outside the browser.
+The extension sends only a boolean active/inactive state. The native host
+forwards it over a user-only Unix domain socket; URLs and browsing history never
+leave the browser.
 
 ## My stats (mini)
 
@@ -53,15 +52,3 @@ days as `Date | Day | Hours`. Only active running time is counted; paused,
 locked, Focus Protection, and app-closed time are excluded. Days with no active
 tracked time display `NA`. The report closes automatically when you click
 outside it.
-
-## Continue counting
-
-When Focus Protection pauses on a selected website that you are using for
-work-related content, right-click the timer and choose **Continue counting**.
-The timer resumes and records that protected tab and site visit as productive
-time. Briefly clicking the tracker and returning to the same visit within 30
-seconds keeps counting. Switching protected tabs or sites, visiting an
-unprotected page, or returning after more than 30 seconds ends the override.
-Choose **Stop counting this site** to cancel it immediately. Session-lock
-pausing always remains enforced. Manual timer pauses, resumes, and timer-mode
-changes do not end the current visit override.
