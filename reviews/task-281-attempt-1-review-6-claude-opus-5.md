@@ -142,3 +142,16 @@ restored Windows `Timer complete` tooltip. All Continue counting menu items, too
 wire fields, and documentation are removed on both platforms and from the marketing page;
 2.8.1 metadata and download links are complete and consistent; and the build, the 25 desktop
 tests, and both browser-extension test suites pass on the reviewed tree.
+
+## macOS Release Validation
+
+- **Date:** 2026-09-05
+- **GitHub Actions run:** `33975734714`
+- **Source commit:** `f3393b3d2b14d37caca17889fd8e7ef9149a9cf5`
+- **macOS arm64:** succeeded on `macos-15`; artifact `9972252366`,
+  SHA-256 `4fec6ecac62a33d2ac35f89236993c08df3b553216e7e33d797cce13d1827292`
+- **macOS x64:** succeeded on `macos-15-intel`; artifact `9972259955`,
+  SHA-256 `b27f153a16e888bd47ae251a6b584e86eef4e228a9f9e8f701e8e5d3b7088306`
+
+Both supported macOS architectures compiled and packaged successfully, closing
+the final unchecked review item before publishing version 2.8.1.
