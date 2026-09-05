@@ -19,6 +19,26 @@ var tests = new (string Name, Action Run)[]
     ("Added time preserves a running stopwatch", AddedTimePreservesRunningStopwatch),
     ("Add and start exits countdown mode", AddAndStartExitsCountdownMode),
     ("Distracting site pauses and resumes tracking", DistractingSitePausesAndResumesTracking),
+    ("Continue counting overrides current distracting-site visit", ContinueCountingOverridesCurrentDistractingSiteVisit),
+    ("Continue counting survives watch focus handoff", ContinueCountingSurvivesWatchFocusHandoff),
+    ("Continue counting survives delayed focus loss", ContinueCountingSurvivesDelayedFocusLoss),
+    ("Continue counting remains available after a long automatic pause", ContinueCountingRemainsAvailableAfterLongPause),
+    ("Continue counting handoff expires", ContinueCountingHandoffExpires),
+    ("Confirmed Continue counting handoff expires", ConfirmedContinueCountingHandoffExpires),
+    ("Continue counting handoff includes exact deadline", ContinueCountingHandoffIncludesExactDeadline),
+    ("Continue counting status clears while browser is unfocused", ContinueCountingStatusClearsWhileBrowserIsUnfocused),
+    ("Continue counting does not transfer to another protected visit", ContinueCountingDoesNotTransferToAnotherProtectedVisit),
+    ("Continue counting can be cancelled while active", ContinueCountingCanBeCancelledWhileActive),
+    ("Unprotected page clears Continue counting offer", UnprotectedPageClearsContinueCountingOffer),
+    ("Continue counting preserves session-lock pause", ContinueCountingPreservesSessionLockPause),
+    ("Continue counting requires an interrupted tracker", ContinueCountingRequiresInterruptedTracker),
+    ("Remain paused clears Continue counting offer", RemainPausedClearsContinueCountingOffer),
+    ("Disabling Focus Protection cancels Continue counting", DisablingFocusProtectionCancelsContinueCounting),
+    ("Session lock does not create Continue counting offer", SessionLockDoesNotCreateContinueCountingOffer),
+    ("Session lock blocks a pending Continue counting offer", SessionLockBlocksPendingContinueCountingOffer),
+    ("Continue counting survives manual pause and resume", ContinueCountingSurvivesManualPauseAndResume),
+    ("Continue counting survives a new timer in the same visit", ContinueCountingSurvivesNewTimerInSameVisit),
+    ("Continue counting contributes productive statistics", ContinueCountingContributesProductiveStatistics),
     ("Lock and distracting site require both to clear", AutomaticPauseReasonsMustBothClear),
     ("Manual stop during automatic pause prevents resume", ManualStopDuringAutomaticPausePreventsResume),
     ("Daily stats count only active tracking", DailyStatsCountOnlyActiveTracking),
@@ -296,6 +316,396 @@ static void DistractingSitePausesAndResumesTracking()
     Equal(TimeSpan.FromMinutes(10), tracker.DisplayTime);
 }
 
+static void ContinueCountingOverridesCurrentDistractingSiteVisit()
+{
+    var clock = new FakeClock();
+    var tracker = new TrackingController(clock);
+
+    tracker.Toggle();
+    clock.Advance(TimeSpan.FromMinutes(5));
+    tracker.OnDistractingWebsiteChanged(isActive: true);
+
+    True(tracker.CanContinueCountingOnDistractingWebsite);
+    tracker.ContinueCountingOnDistractingWebsite();
+    tracker.OnDistractingWebsiteChanged(isActive: true);
+    tracker.OnDistractingWebsiteChanged(isActive: false);
+    tracker.OnDistractingWebsiteChanged(isActive: true);
+    clock.Advance(TimeSpan.FromMinutes(10));
+    clock.Advance(TimeSpan.FromMinutes(5));
+
+    True(tracker.IsRunning);
+    False(tracker.IsAutomaticallyPaused);
+    Equal(TimeSpan.FromMinutes(20), tracker.DisplayTime);
+
+    tracker.OnDistractingWebsiteChanged(isActive: false);
+    clock.Advance(TimeSpan.FromSeconds(31));
+    tracker.OnDistractingWebsiteChanged(isActive: true);
+
+    False(tracker.IsRunning);
+    True(tracker.CanContinueCountingOnDistractingWebsite);
+}
+
+static void ContinueCountingSurvivesWatchFocusHandoff()
+{
+    var clock = new FakeClock();
+    var tracker = new TrackingController(clock);
+
+    tracker.Toggle();
+    tracker.OnDistractingWebsiteChanged(isActive: true);
+    tracker.OnDistractingWebsiteChanged(isActive: false);
+
+    True(tracker.IsRunning);
+    True(tracker.CanContinueCountingOnDistractingWebsite);
+
+    tracker.ContinueCountingOnDistractingWebsite();
+    tracker.OnDistractingWebsiteChanged(isActive: false);
+    tracker.OnDistractingWebsiteChanged(isActive: true);
+    clock.Advance(TimeSpan.FromMinutes(10));
+
+    True(tracker.IsRunning);
+    False(tracker.IsAutomaticallyPaused);
+    Equal(TimeSpan.FromMinutes(10), tracker.DisplayTime);
+
+    tracker.OnDistractingWebsiteChanged(isActive: false);
+    clock.Advance(TimeSpan.FromSeconds(31));
+    tracker.OnDistractingWebsiteChanged(isActive: true);
+
+    False(tracker.IsRunning);
+}
+
+static void ContinueCountingSurvivesDelayedFocusLoss()
+{
+    var clock = new FakeClock();
+    var tracker = new TrackingController(clock);
+
+    tracker.Toggle();
+    tracker.OnDistractingWebsiteChanged(isActive: true);
+    tracker.ContinueCountingOnDistractingWebsite();
+    tracker.OnDistractingWebsiteChanged(isActive: true);
+    tracker.OnDistractingWebsiteChanged(isActive: false);
+    tracker.OnDistractingWebsiteChanged(isActive: true);
+    clock.Advance(TimeSpan.FromMinutes(10));
+
+    True(tracker.IsRunning);
+    False(tracker.IsAutomaticallyPaused);
+    Equal(TimeSpan.FromMinutes(10), tracker.DisplayTime);
+
+    tracker.OnDistractingWebsiteChanged(isActive: false);
+    clock.Advance(TimeSpan.FromSeconds(31));
+    tracker.OnDistractingWebsiteChanged(isActive: true);
+
+    False(tracker.IsRunning);
+}
+
+static void ContinueCountingRemainsAvailableAfterLongPause()
+{
+    var clock = new FakeClock();
+    var tracker = new TrackingController(clock);
+
+    tracker.Toggle();
+    tracker.OnDistractingWebsiteChanged(isActive: true);
+    clock.Advance(TimeSpan.FromMinutes(10));
+    tracker.OnDistractingWebsiteChanged(isActive: false);
+
+    True(tracker.CanContinueCountingOnDistractingWebsite);
+    tracker.ContinueCountingOnDistractingWebsite();
+    tracker.OnDistractingWebsiteChanged(isActive: true);
+
+    True(tracker.IsRunning);
+    False(tracker.IsAutomaticallyPaused);
+}
+
+static void ContinueCountingHandoffExpires()
+{
+    var clock = new FakeClock();
+    var tracker = new TrackingController(clock);
+
+    tracker.Toggle();
+    tracker.OnDistractingWebsiteChanged(isActive: true);
+    tracker.OnDistractingWebsiteChanged(isActive: false);
+    tracker.ContinueCountingOnDistractingWebsite();
+    clock.Advance(TimeSpan.FromSeconds(31));
+    tracker.OnDistractingWebsiteChanged(isActive: true);
+
+    False(tracker.IsRunning);
+    True(tracker.IsAutomaticallyPaused);
+}
+
+static void ConfirmedContinueCountingHandoffExpires()
+{
+    var clock = new FakeClock();
+    var tracker = CreateConfirmedContinueCountingTrackerWithClock(clock);
+
+    tracker.OnDistractingWebsiteChanged(isActive: false);
+    clock.Advance(TimeSpan.FromSeconds(31));
+    tracker.OnDistractingWebsiteChanged(isActive: true);
+
+    False(tracker.IsRunning);
+    True(tracker.IsAutomaticallyPaused);
+    False(tracker.IsContinuingCountingOnDistractingWebsite);
+}
+
+static void ContinueCountingHandoffIncludesExactDeadline()
+{
+    var clock = new FakeClock();
+    var tracker = new TrackingController(clock);
+
+    tracker.Toggle();
+    tracker.OnDistractingWebsiteChanged(isActive: true);
+    tracker.OnDistractingWebsiteChanged(isActive: false);
+    tracker.ContinueCountingOnDistractingWebsite();
+    clock.Advance(TimeSpan.FromSeconds(30));
+    tracker.OnDistractingWebsiteChanged(isActive: true);
+
+    True(tracker.IsRunning);
+    True(tracker.IsContinuingCountingOnDistractingWebsite);
+}
+
+static void ContinueCountingStatusClearsWhileBrowserIsUnfocused()
+{
+    var tracker = new TrackingController(new FakeClock());
+
+    tracker.Toggle();
+    tracker.OnDistractingWebsiteChanged(isActive: true, visitToken: "work-visit");
+    tracker.ContinueCountingOnDistractingWebsite();
+
+    True(tracker.IsContinuingCountingOnDistractingWebsite);
+    True(tracker.HasContinueCountingOverride);
+
+    tracker.OnDistractingWebsiteChanged(isActive: false, visitToken: "work-visit");
+
+    False(tracker.IsContinuingCountingOnDistractingWebsite);
+    True(tracker.HasContinueCountingOverride);
+}
+
+static void ContinueCountingDoesNotTransferToAnotherProtectedVisit()
+{
+    var tracker = new TrackingController(new FakeClock());
+
+    tracker.Toggle();
+    tracker.OnDistractingWebsiteChanged(isActive: true, visitToken: "work-visit");
+    tracker.ContinueCountingOnDistractingWebsite();
+    tracker.OnDistractingWebsiteChanged(isActive: true, visitToken: "other-visit");
+
+    False(tracker.IsRunning);
+    True(tracker.IsAutomaticallyPaused);
+    False(tracker.HasContinueCountingOverride);
+    True(tracker.CanContinueCountingOnDistractingWebsite);
+}
+
+static void ContinueCountingCanBeCancelledWhileActive()
+{
+    var tracker = new TrackingController(new FakeClock());
+
+    tracker.Toggle();
+    tracker.OnDistractingWebsiteChanged(isActive: true, visitToken: "work-visit");
+    tracker.ContinueCountingOnDistractingWebsite();
+    tracker.CancelContinueCountingOnDistractingWebsite();
+
+    False(tracker.IsRunning);
+    True(tracker.IsAutomaticallyPaused);
+    False(tracker.HasContinueCountingOverride);
+}
+
+static void UnprotectedPageClearsContinueCountingOffer()
+{
+    var tracker = new TrackingController(new FakeClock());
+
+    tracker.Toggle();
+    tracker.OnDistractingWebsiteChanged(isActive: true, visitToken: "work-visit");
+    tracker.OnDistractingWebsiteChanged(isActive: false, visitToken: "work-visit");
+
+    True(tracker.CanContinueCountingOnDistractingWebsite);
+
+    tracker.OnDistractingWebsiteChanged(isActive: false, visitToken: null);
+
+    False(tracker.CanContinueCountingOnDistractingWebsite);
+    tracker.ContinueCountingOnDistractingWebsite();
+    False(tracker.HasContinueCountingOverride);
+}
+
+static void ContinueCountingPreservesSessionLockPause()
+{
+    var tracker = new TrackingController(new FakeClock());
+
+    tracker.Toggle();
+    tracker.OnSessionLocked();
+    tracker.OnDistractingWebsiteChanged(isActive: true);
+    tracker.ContinueCountingOnDistractingWebsite();
+
+    False(tracker.IsRunning);
+    True(tracker.IsAutomaticallyPaused);
+    False(tracker.CanContinueCountingOnDistractingWebsite);
+
+    tracker.OnSessionUnlocked();
+
+    False(tracker.IsRunning);
+    True(tracker.IsAutomaticallyPaused);
+
+    tracker.OnDistractingWebsiteChanged(isActive: false);
+
+    True(tracker.IsRunning);
+}
+
+static void ContinueCountingRequiresInterruptedTracker()
+{
+    var tracker = new TrackingController(new FakeClock());
+
+    tracker.OnDistractingWebsiteChanged(isActive: true);
+
+    False(tracker.CanContinueCountingOnDistractingWebsite);
+    tracker.ContinueCountingOnDistractingWebsite();
+    tracker.Toggle();
+
+    False(tracker.IsRunning);
+    True(tracker.IsAutomaticallyPaused);
+    True(tracker.CanContinueCountingOnDistractingWebsite);
+}
+
+static void RemainPausedClearsContinueCountingOffer()
+{
+    var tracker = new TrackingController(new FakeClock());
+
+    tracker.Toggle();
+    tracker.OnDistractingWebsiteChanged(isActive: true);
+    tracker.Toggle();
+    tracker.OnDistractingWebsiteChanged(isActive: false);
+
+    False(tracker.IsRunning);
+    False(tracker.IsAutomaticallyPaused);
+    False(tracker.CanContinueCountingOnDistractingWebsite);
+}
+
+static void DisablingFocusProtectionCancelsContinueCounting()
+{
+    var tracker = new TrackingController(new FakeClock());
+
+    tracker.Toggle();
+    tracker.OnDistractingWebsiteChanged(isActive: true);
+    tracker.OnDistractingWebsiteChanged(isActive: false);
+    tracker.CancelContinueCountingOnDistractingWebsite();
+
+    False(tracker.CanContinueCountingOnDistractingWebsite);
+
+    tracker.OnDistractingWebsiteChanged(isActive: true);
+
+    False(tracker.IsRunning);
+    True(tracker.IsAutomaticallyPaused);
+}
+
+static void SessionLockDoesNotCreateContinueCountingOffer()
+{
+    var tracker = new TrackingController(new FakeClock());
+
+    tracker.Toggle();
+    tracker.OnSessionLocked();
+    tracker.OnDistractingWebsiteChanged(isActive: true);
+    tracker.OnDistractingWebsiteChanged(isActive: false);
+    tracker.OnSessionUnlocked();
+
+    True(tracker.IsRunning);
+    False(tracker.CanContinueCountingOnDistractingWebsite);
+}
+
+static void SessionLockBlocksPendingContinueCountingOffer()
+{
+    var tracker = new TrackingController(new FakeClock());
+
+    tracker.Toggle();
+    tracker.OnDistractingWebsiteChanged(isActive: true);
+    tracker.OnDistractingWebsiteChanged(isActive: false);
+    tracker.OnSessionLocked();
+
+    False(tracker.CanContinueCountingOnDistractingWebsite);
+    tracker.ContinueCountingOnDistractingWebsite();
+    tracker.OnSessionUnlocked();
+    tracker.OnDistractingWebsiteChanged(isActive: true);
+
+    False(tracker.IsRunning);
+    True(tracker.IsAutomaticallyPaused);
+}
+
+static void ContinueCountingSurvivesManualPauseAndResume()
+{
+    var tracker = CreateConfirmedContinueCountingTracker();
+
+    tracker.OnDistractingWebsiteChanged(isActive: false);
+    tracker.Toggle();
+    tracker.Toggle();
+    tracker.OnDistractingWebsiteChanged(isActive: true);
+
+    True(tracker.IsRunning);
+    True(tracker.IsContinuingCountingOnDistractingWebsite);
+}
+
+static void ContinueCountingSurvivesNewTimerInSameVisit()
+{
+    var tracker = CreateConfirmedContinueCountingTracker();
+
+    tracker.OnDistractingWebsiteChanged(isActive: false);
+    tracker.StartTimer(TimeSpan.FromMinutes(25));
+    tracker.OnDistractingWebsiteChanged(isActive: true);
+
+    True(tracker.IsRunning);
+    True(tracker.IsTimerMode);
+    True(tracker.IsContinuingCountingOnDistractingWebsite);
+}
+
+static TrackingController CreateConfirmedContinueCountingTracker()
+{
+    return CreateConfirmedContinueCountingTrackerWithClock(new FakeClock());
+}
+
+static TrackingController CreateConfirmedContinueCountingTrackerWithClock(
+    FakeClock clock)
+{
+    var tracker = new TrackingController(clock);
+    tracker.Toggle();
+    tracker.OnDistractingWebsiteChanged(isActive: true);
+    tracker.OnDistractingWebsiteChanged(isActive: false);
+    tracker.ContinueCountingOnDistractingWebsite();
+    tracker.OnDistractingWebsiteChanged(isActive: true);
+    return tracker;
+}
+
+static void ContinueCountingContributesProductiveStatistics()
+{
+    var clock = new FakeClock();
+    var tracker = new TrackingController(clock);
+    var stats = new DailyStatsAccumulator(TimeZoneInfo.Utc);
+    var timestamp = new DateTimeOffset(2026, 9, 5, 9, 0, 0, TimeSpan.Zero);
+    var monotonic = TimeSpan.Zero;
+
+    stats.Sample(timestamp, monotonic, isRunning: false);
+    tracker.Toggle();
+    stats.Sample(timestamp, monotonic, tracker.IsRunning);
+
+    Advance(TimeSpan.FromMinutes(5));
+    tracker.OnDistractingWebsiteChanged(isActive: true);
+    stats.Sample(timestamp, monotonic, tracker.IsRunning);
+
+    Advance(TimeSpan.FromMinutes(7));
+    tracker.OnDistractingWebsiteChanged(isActive: false);
+    stats.Sample(timestamp, monotonic, tracker.IsRunning);
+    tracker.ContinueCountingOnDistractingWebsite();
+    tracker.OnDistractingWebsiteChanged(isActive: true);
+    stats.Sample(timestamp, monotonic, tracker.IsRunning);
+
+    Advance(TimeSpan.FromMinutes(4));
+    tracker.Toggle();
+    stats.Sample(timestamp, monotonic, tracker.IsRunning);
+
+    var report = stats.GetReport(new DateOnly(2026, 9, 5), 1);
+    Equal(TimeSpan.FromMinutes(9), report[0].TrackedTime);
+
+    void Advance(TimeSpan duration)
+    {
+        clock.Advance(duration);
+        timestamp += duration;
+        monotonic += duration;
+    }
+}
+
 static void AutomaticPauseReasonsMustBothClear()
 {
     var tracker = new TrackingController(new FakeClock());
@@ -477,6 +887,18 @@ static void False(bool value)
     if (value)
     {
         throw new InvalidOperationException("Expected false.");
+    }
+}
+
+file static class TrackingControllerTestExtensions
+{
+    public static void OnDistractingWebsiteChanged(
+        this TrackingController tracker,
+        bool isActive)
+    {
+        tracker.OnDistractingWebsiteChanged(
+            isActive,
+            "test-protected-visit");
     }
 }
 

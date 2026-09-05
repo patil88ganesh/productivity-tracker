@@ -6,9 +6,25 @@ enum AutomaticPauseReason: Hashable {
 }
 
 final class TimerEngine {
+    private enum ContinueCountingHandoffState {
+        case none
+        case awaitingFocusLoss
+        case awaitingRefocus
+        case confirmed
+    }
+
+    private static let continueCountingHandoffWindow: TimeInterval = 30
+
     private var accumulated: TimeInterval = 0
     private var startedAt: TimeInterval = 0
     private var automaticPauseReasons = Set<AutomaticPauseReason>()
+    private var ignoredAutomaticPauseReasons = Set<AutomaticPauseReason>()
+    private var continueCountingAvailableUntil: TimeInterval?
+    private var continueCountingOfferVisitToken: String?
+    private var continueCountingVisitToken: String?
+    private var continueCountingHandoffState = ContinueCountingHandoffState.none
+    private var distractingWebsiteIsActive = false
+    private var distractingWebsiteVisitToken: String?
     private var resumeAfterAutomaticPause = false
 
     private(set) var isRunning = false
@@ -21,6 +37,26 @@ final class TimerEngine {
 
     var isAutomaticallyPaused: Bool {
         resumeAfterAutomaticPause && !automaticPauseReasons.isEmpty
+    }
+
+    var canContinueCountingOnDistractingWebsite: Bool {
+        !ignoredAutomaticPauseReasons.contains(.distractingWebsite) &&
+            !automaticPauseReasons.contains(.sessionLocked) &&
+            ((resumeAfterAutomaticPause &&
+                automaticPauseReasons.contains(.distractingWebsite) &&
+                distractingWebsiteVisitToken != nil) ||
+                ((continueCountingAvailableUntil.map { now <= $0 } ?? false) &&
+                    continueCountingOfferVisitToken != nil))
+    }
+
+    var isContinuingCountingOnDistractingWebsite: Bool {
+        ignoredAutomaticPauseReasons.contains(.distractingWebsite) &&
+            (continueCountingHandoffState == .awaitingFocusLoss ||
+                continueCountingHandoffState == .confirmed)
+    }
+
+    var hasContinueCountingOverride: Bool {
+        ignoredAutomaticPauseReasons.contains(.distractingWebsite)
     }
 
     var displayTime: TimeInterval {
@@ -91,8 +127,48 @@ final class TimerEngine {
         return true
     }
 
-    func setAutomaticPause(_ reason: AutomaticPauseReason, active: Bool) {
+    func setAutomaticPause(
+        _ reason: AutomaticPauseReason,
+        active: Bool,
+        visitToken: String? = nil
+    ) {
+        if reason == .distractingWebsite {
+            let normalizedToken = visitToken?.isEmpty == false ? visitToken : nil
+            distractingWebsiteIsActive = active
+            distractingWebsiteVisitToken = normalizedToken
+            if !hasContinueCountingOverride,
+               let offerVisitToken = continueCountingOfferVisitToken,
+               offerVisitToken != normalizedToken {
+                continueCountingAvailableUntil = nil
+                continueCountingOfferVisitToken = nil
+            }
+            if hasContinueCountingOverride &&
+                continueCountingVisitToken != normalizedToken {
+                clearContinueCountingOverride()
+            }
+        }
+
         if active {
+            if ignoredAutomaticPauseReasons.contains(reason) {
+                guard reason == .distractingWebsite else {
+                    return
+                }
+
+                if continueCountingHandoffState == .awaitingFocusLoss ||
+                    continueCountingHandoffState == .confirmed {
+                    return
+                }
+                if continueCountingHandoffState == .awaitingRefocus,
+                   continueCountingAvailableUntil.map({ now <= $0 }) ?? false {
+                    continueCountingHandoffState = .confirmed
+                    continueCountingAvailableUntil = nil
+                    return
+                }
+
+                ignoredAutomaticPauseReasons.remove(reason)
+                continueCountingHandoffState = .none
+                continueCountingVisitToken = nil
+            }
             guard automaticPauseReasons.insert(reason).inserted else {
                 return
             }
@@ -104,6 +180,31 @@ final class TimerEngine {
             return
         }
 
+        if reason == .distractingWebsite,
+           automaticPauseReasons.contains(reason),
+           automaticPauseReasons.count == 1,
+           resumeAfterAutomaticPause,
+           distractingWebsiteVisitToken != nil {
+            continueCountingAvailableUntil =
+                now + Self.continueCountingHandoffWindow
+            continueCountingOfferVisitToken = distractingWebsiteVisitToken
+        }
+
+        if ignoredAutomaticPauseReasons.contains(reason),
+           reason == .distractingWebsite {
+            if continueCountingHandoffState == .awaitingFocusLoss ||
+                continueCountingHandoffState == .confirmed {
+                continueCountingHandoffState = .awaitingRefocus
+                continueCountingAvailableUntil =
+                    now + Self.continueCountingHandoffWindow
+            } else if continueCountingHandoffState == .awaitingRefocus &&
+                        (continueCountingAvailableUntil.map { now > $0 } ?? false) {
+                ignoredAutomaticPauseReasons.remove(reason)
+                continueCountingHandoffState = .none
+                continueCountingAvailableUntil = nil
+                continueCountingVisitToken = nil
+            }
+        }
         guard automaticPauseReasons.remove(reason) != nil,
               automaticPauseReasons.isEmpty,
               resumeAfterAutomaticPause else {
@@ -112,6 +213,21 @@ final class TimerEngine {
         startedAt = now
         isRunning = true
         resumeAfterAutomaticPause = false
+    }
+
+    func continueCountingOnDistractingWebsite() {
+        continueCounting(through: .distractingWebsite)
+    }
+
+    func cancelContinueCountingOnDistractingWebsite() {
+        clearContinueCountingOverride()
+        if distractingWebsiteIsActive {
+            setAutomaticPause(
+                .distractingWebsite,
+                active: true,
+                visitToken: distractingWebsiteVisitToken
+            )
+        }
     }
 
     private var now: TimeInterval {
@@ -140,6 +256,52 @@ final class TimerEngine {
         }
         isRunning = false
         resumeAfterAutomaticPause = false
+        if !ignoredAutomaticPauseReasons.contains(.distractingWebsite) {
+            continueCountingAvailableUntil = nil
+        }
+    }
+
+    private func continueCounting(through reason: AutomaticPauseReason) {
+        let automaticPauseWasActive = automaticPauseReasons.contains(reason)
+        let visitToken = automaticPauseWasActive
+            ? distractingWebsiteVisitToken
+            : continueCountingOfferVisitToken
+        guard !automaticPauseReasons.contains(.sessionLocked) else {
+            return
+        }
+        guard reason != .distractingWebsite || visitToken != nil else {
+            return
+        }
+        guard (resumeAfterAutomaticPause && automaticPauseWasActive) ||
+                (continueCountingAvailableUntil.map { now <= $0 } ?? false) else {
+            return
+        }
+
+        automaticPauseReasons.remove(reason)
+        ignoredAutomaticPauseReasons.insert(reason)
+        continueCountingVisitToken = visitToken
+        continueCountingHandoffState = automaticPauseWasActive
+            ? .awaitingFocusLoss
+            : .awaitingRefocus
+        continueCountingAvailableUntil =
+            now + Self.continueCountingHandoffWindow
+        guard automaticPauseReasons.isEmpty else {
+            return
+        }
+
+        if resumeAfterAutomaticPause {
+            startedAt = now
+            isRunning = true
+            resumeAfterAutomaticPause = false
+        }
+    }
+
+    private func clearContinueCountingOverride() {
+        ignoredAutomaticPauseReasons.remove(.distractingWebsite)
+        continueCountingHandoffState = .none
+        continueCountingAvailableUntil = nil
+        continueCountingOfferVisitToken = nil
+        continueCountingVisitToken = nil
     }
 
     private func add(_ duration: TimeInterval) {

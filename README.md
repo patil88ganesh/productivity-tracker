@@ -3,15 +3,15 @@
 Productivity Tracker is a compact, semi-transparent, always-on-top stopwatch
 and countdown timer for Windows and macOS.
 
-## Downloads — version 2.7.1
+## Downloads — version 2.8.0
 
-- **Windows 10/11 x64:** [ProductivityTracker-Setup.exe](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.7.1/ProductivityTracker-Setup.exe)
-- **macOS 12+ Apple silicon:** [ProductivityTracker-macOS-arm64.app.zip](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.7.1/ProductivityTracker-macOS-arm64.app.zip)
-- **macOS 12+ Intel:** [ProductivityTracker-macOS-x64.app.zip](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.7.1/ProductivityTracker-macOS-x64.app.zip)
+- **Windows 10/11 x64:** [ProductivityTracker-Setup.exe](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.8.0/ProductivityTracker-Setup.exe)
+- **macOS 12+ Apple silicon:** [ProductivityTracker-macOS-arm64.app.zip](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.8.0/ProductivityTracker-macOS-arm64.app.zip)
+- **macOS 12+ Intel:** [ProductivityTracker-macOS-x64.app.zip](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.8.0/ProductivityTracker-macOS-x64.app.zip)
 
 Release downloads will be published under:
 
-`https://github.com/patil88ganesh/productivity-tracker/releases/tag/v2.7.1`
+`https://github.com/patil88ganesh/productivity-tracker/releases/tag/v2.8.0`
 
 The macOS build is a beta with an ad-hoc signature and is not notarized. After
 extracting the zip, move `ProductivityTracker.app` to Applications and try to
@@ -28,8 +28,8 @@ confirm **Open**. Do not bypass Gatekeeper globally.
 - Drag any edge or corner to resize it; the digits scale automatically.
 - Hover over the clock for a highlighted surface, border, and shadow.
 - High-contrast status dots use saturated colors, an outline, and a soft glow.
-- Right-click for Pause/Resume, Reset, Add and Start, Set Timer, My stats
-  (mini), opacity, Minimize, Focus Protection, and Exit.
+- Right-click for Pause/Resume, Continue counting, Reset, Add and Start,
+  Set Timer, My stats (mini), opacity, Minimize, Focus Protection, and Exit.
 - Add and Start accepts hours and minutes, adds them to the current stopwatch
   total, and immediately resumes counting.
 - Set Timer accepts hours, minutes, and seconds and starts a countdown.
@@ -64,6 +64,16 @@ Google Drive, Docs, Sheets, and Slides in Google Chrome and Microsoft Edge.
 5. Select the folder opened by Productivity Tracker.
 6. Enable **Pause on selected websites** in the timer menu.
 
+When Focus Protection pauses the tracker on a selected website, right-click the
+clock and choose **Continue counting** if the current content is work-related.
+The tracker resumes and includes that time in **My stats (mini)**. The override
+is tied to that protected tab and site visit. Briefly clicking the tracker and
+returning to the same visit within 30 seconds keeps counting; switching to a
+different protected tab or site, visiting an unprotected page, or returning
+after more than 30 seconds ends the override. Choose **Stop counting this site**
+to cancel it immediately. Manual timer pauses, resumes, and timer-mode changes
+do not end the current visit override. Session-lock pausing cannot be overridden.
+
 After installing an app update, select **Reload** on the unpacked extension's
 card so its service worker, domain list, and native-host connection logic are
 refreshed.
@@ -73,10 +83,12 @@ setup copies the extension into the user's Application Support folder and
 registers the bundled Swift native host for Chrome and Edge. The macOS host
 uses a user-only local Unix domain socket to communicate with the app.
 
-The extension evaluates supported domains locally and sends only a boolean
-active/inactive state. It does not send URLs, page content, or browsing history.
-It confirms delivery with the native host, retries disconnected signals, and
-shows an exclamation badge when the desktop app cannot be reached.
+The extension evaluates supported domains locally and sends an active/inactive
+state plus a random opaque visit token. The token lets the app recognize the
+same protected visit without receiving the domain, URL, page content, or
+browsing history. The extension confirms delivery with the native host, retries
+disconnected signals, and shows an exclamation badge when the desktop app
+cannot be reached.
 
 ## Build Windows
 

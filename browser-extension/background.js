@@ -3,11 +3,14 @@ importScripts("site-matcher.js");
 const NATIVE_HOST = "com.patil88ganesh.productivity_tracker";
 const HEARTBEAT_ALARM = "focus-protection-heartbeat";
 const RETRY_DELAY_MS = 5000;
-const { isDistractingUrl } = globalThis.ProductivityTrackerSites;
+const { getDistractingSiteKey } = globalThis.ProductivityTrackerSites;
 
 let nativePort;
 let currentState = false;
+let currentVisitToken;
+let currentVisitIdentity;
 let lastDeliveredState;
+let lastDeliveredVisitToken;
 let retryTimer;
 
 function updateBadge(active, connected = true) {
@@ -54,42 +57,62 @@ function connectNativeHost() {
 
     if (!message.appConnected) {
       lastDeliveredState = undefined;
+      lastDeliveredVisitToken = undefined;
       updateBadge(currentState, false);
       scheduleRetry();
       return;
     }
 
-    lastDeliveredState =
-      typeof message.active === "boolean" ? message.active : currentState;
-    updateBadge(currentState);
-    if (lastDeliveredState !== currentState) {
-      reportState(currentState, true);
+    const acknowledgedState =
+      typeof message.active === "boolean" ? message.active : undefined;
+    const acknowledgedVisitToken =
+      typeof message.visitToken === "string" ? message.visitToken : undefined;
+    if (
+      acknowledgedState !== currentState ||
+      acknowledgedVisitToken !== currentVisitToken
+    ) {
+      lastDeliveredState = undefined;
+      lastDeliveredVisitToken = undefined;
+      updateBadge(currentState, false);
+      scheduleRetry();
+      return;
     }
+
+    lastDeliveredState = acknowledgedState;
+    lastDeliveredVisitToken = acknowledgedVisitToken;
+    updateBadge(currentState);
   });
   port.onDisconnect.addListener(() => {
     if (nativePort === port) {
       nativePort = undefined;
     }
     lastDeliveredState = undefined;
+    lastDeliveredVisitToken = undefined;
     updateBadge(currentState, false);
     scheduleRetry();
   });
   return port;
 }
 
-function reportState(active, force = false) {
+function reportState(active, visitToken, force = false) {
   currentState = active;
-  if (!force && lastDeliveredState === active) {
+  currentVisitToken = visitToken;
+  if (
+    !force &&
+    lastDeliveredState === active &&
+    lastDeliveredVisitToken === visitToken
+  ) {
     updateBadge(active);
     return;
   }
 
   try {
-    connectNativeHost().postMessage({ active });
     updateBadge(active);
+    connectNativeHost().postMessage({ active, visitToken });
   } catch {
     nativePort = undefined;
     lastDeliveredState = undefined;
+    lastDeliveredVisitToken = undefined;
     updateBadge(active, false);
     scheduleRetry();
   }
@@ -99,7 +122,7 @@ async function evaluateActiveTab(force = false) {
   try {
     const focusedWindow = await chrome.windows.getLastFocused();
     if (!focusedWindow?.focused || typeof focusedWindow.id !== "number") {
-      reportState(false, force);
+      reportState(false, currentVisitToken, force);
       return;
     }
 
@@ -108,9 +131,22 @@ async function evaluateActiveTab(force = false) {
       windowId: focusedWindow.id,
     });
     const url = tab?.url || tab?.pendingUrl;
-    reportState(Boolean(tab && isDistractingUrl(url)), force);
+    const siteKey = getDistractingSiteKey(url);
+    if (!tab || !siteKey) {
+      currentVisitIdentity = undefined;
+      reportState(false, undefined, force);
+      return;
+    }
+
+    const visitIdentity = `${tab.id}:${siteKey}`;
+    if (visitIdentity !== currentVisitIdentity) {
+      currentVisitIdentity = visitIdentity;
+      currentVisitToken = crypto.randomUUID();
+    }
+    reportState(true, currentVisitToken, force);
   } catch {
-    reportState(false, force);
+    currentVisitIdentity = undefined;
+    reportState(false, undefined, force);
   }
 }
 
@@ -122,7 +158,7 @@ chrome.tabs.onUpdated.addListener((_tabId, changeInfo, tab) => {
 });
 chrome.windows.onFocusChanged.addListener((windowId) => {
   if (windowId === chrome.windows.WINDOW_ID_NONE) {
-    reportState(false);
+    reportState(false, currentVisitToken);
     return;
   }
 

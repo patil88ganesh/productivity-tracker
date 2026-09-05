@@ -23,6 +23,10 @@
     <Window.ContextMenu>
         <ContextMenu>
             <MenuItem x:Name="ToggleMenuItem" Header="Start" Click="ToggleMenuItem_Click"/>
+            <MenuItem x:Name="ContinueCountingMenuItem"
+                      Header="Continue counting"
+                      IsEnabled="False"
+                      Click="ContinueCountingMenuItem_Click"/>
             <MenuItem Header="Reset" Click="ResetMenuItem_Click"/>
             <MenuItem Header="Add and Start..." Click="AddAndStartMenuItem_Click"/>
             <MenuItem Header="Set Timer..." Click="TimerMenuItem_Click"/>

@@ -5,18 +5,25 @@ namespace MiniStopwatch.App;
 
 internal sealed class SocialMediaPauseBridge : IDisposable
 {
+    private sealed record ConnectionState(
+        bool Active,
+        string? VisitToken,
+        long Sequence);
+
     public const string PipeName = "ProductivityTracker.SocialMediaPause";
 
-    private readonly Action<bool> stateChanged;
+    private readonly Action<bool, string?> stateChanged;
     private readonly CancellationTokenSource cancellation = new();
     private readonly Task listenerTask;
     private readonly object stateLock = new();
-    private readonly HashSet<int> activeConnections = [];
+    private readonly Dictionary<int, ConnectionState> connectionStates = [];
     private int nextConnectionId;
+    private long nextSequence;
     private bool lastReportedState;
+    private string? lastReportedVisitToken;
     private bool disposed;
 
-    public SocialMediaPauseBridge(Action<bool> stateChanged)
+    public SocialMediaPauseBridge(Action<bool, string?> stateChanged)
     {
         this.stateChanged = stateChanged;
         listenerTask = ListenAsync();
@@ -30,14 +37,15 @@ internal sealed class SocialMediaPauseBridge : IDisposable
         lock (stateLock)
         {
             disposed = true;
-            activeConnections.Clear();
-            shouldReport = lastReportedState;
+            connectionStates.Clear();
+            shouldReport = lastReportedState || lastReportedVisitToken != null;
             lastReportedState = false;
+            lastReportedVisitToken = null;
         }
 
         if (shouldReport)
         {
-            stateChanged(false);
+            stateChanged(false, null);
         }
 
         cancellation.Dispose();
@@ -89,7 +97,12 @@ internal sealed class SocialMediaPauseBridge : IDisposable
                         break;
                     }
 
-                    SetConnectionState(connectionId, message == "1");
+                    var separator = message.IndexOf('\t');
+                    var active = (separator >= 0 ? message[..separator] : message) == "1";
+                    var visitToken = separator >= 0 && separator < message.Length - 1
+                        ? message[(separator + 1)..]
+                        : null;
+                    SetConnectionState(connectionId, active, visitToken);
                 }
             }
         }
@@ -101,13 +114,17 @@ internal sealed class SocialMediaPauseBridge : IDisposable
         }
         finally
         {
-            SetConnectionState(connectionId, active: false);
+            RemoveConnection(connectionId);
         }
     }
 
-    private void SetConnectionState(int connectionId, bool active)
+    private void SetConnectionState(
+        int connectionId,
+        bool active,
+        string? visitToken)
     {
         bool aggregateState;
+        string? aggregateVisitToken;
         bool shouldReport;
         lock (stateLock)
         {
@@ -116,23 +133,63 @@ internal sealed class SocialMediaPauseBridge : IDisposable
                 return;
             }
 
-            if (active)
-            {
-                activeConnections.Add(connectionId);
-            }
-            else
-            {
-                activeConnections.Remove(connectionId);
-            }
-
-            aggregateState = activeConnections.Count > 0;
-            shouldReport = lastReportedState != aggregateState;
+            connectionStates[connectionId] = new ConnectionState(
+                active,
+                visitToken,
+                Interlocked.Increment(ref nextSequence));
+            (aggregateState, aggregateVisitToken) = GetAggregateState();
+            shouldReport =
+                lastReportedState != aggregateState ||
+                lastReportedVisitToken != aggregateVisitToken;
             lastReportedState = aggregateState;
+            lastReportedVisitToken = aggregateVisitToken;
         }
 
         if (shouldReport)
         {
-            stateChanged(aggregateState);
+            stateChanged(aggregateState, aggregateVisitToken);
         }
+    }
+
+    private void RemoveConnection(int connectionId)
+    {
+        bool aggregateState;
+        string? aggregateVisitToken;
+        bool shouldReport;
+        lock (stateLock)
+        {
+            if (disposed)
+            {
+                return;
+            }
+
+            connectionStates.Remove(connectionId);
+            (aggregateState, aggregateVisitToken) = GetAggregateState();
+            shouldReport =
+                lastReportedState != aggregateState ||
+                lastReportedVisitToken != aggregateVisitToken;
+            lastReportedState = aggregateState;
+            lastReportedVisitToken = aggregateVisitToken;
+        }
+
+        if (shouldReport)
+        {
+            stateChanged(aggregateState, aggregateVisitToken);
+        }
+    }
+
+    private (bool Active, string? VisitToken) GetAggregateState()
+    {
+        var selectedState = connectionStates.Values
+            .Where(state => state.Active)
+            .OrderByDescending(state => state.Sequence)
+            .FirstOrDefault() ??
+            connectionStates.Values
+                .Where(state => state.VisitToken != null)
+                .OrderByDescending(state => state.Sequence)
+                .FirstOrDefault();
+        return selectedState == null
+            ? (false, null)
+            : (selectedState.Active, selectedState.VisitToken);
     }
 }

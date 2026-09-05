@@ -17,12 +17,13 @@ private final class ApplicationConnection {
         closeConnection()
     }
 
-    func send(active: Bool) -> Bool {
+    func send(active: Bool, visitToken: String?) -> Bool {
         if socketFD < 0 && !connect() {
             return false
         }
 
-        let bytes: [UInt8] = active ? [49, 10] : [48, 10]
+        let signal = "\(active ? "1" : "0")\t\(visitToken ?? "")\n"
+        let bytes = [UInt8](signal.utf8)
         var sent = 0
         while sent < bytes.count {
             let result = bytes.withUnsafeBytes { pointer in
@@ -99,7 +100,22 @@ private func readExactly(_ count: Int, from input: FileHandle) throws -> Data? {
     return result
 }
 
-private func readMessage(from input: FileHandle) throws -> Bool? {
+private struct BrowserState {
+    let active: Bool
+    let visitToken: String?
+}
+
+private func normalizeVisitToken(_ value: Any?) -> String? {
+    guard let token = value as? String,
+          !token.isEmpty,
+          token.utf8.count <= 64,
+          token.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-") }) else {
+        return nil
+    }
+    return token
+}
+
+private func readMessage(from input: FileHandle) throws -> BrowserState? {
     guard let lengthData = try readExactly(4, from: input) else {
         return nil
     }
@@ -114,15 +130,27 @@ private func readMessage(from input: FileHandle) throws -> Bool? {
           let active = object["active"] as? Bool else {
         throw CocoaError(.fileReadCorruptFile)
     }
-    return active
+    return BrowserState(
+        active: active,
+        visitToken: normalizeVisitToken(object["visitToken"])
+    )
 }
 
-private func writeMessage(active: Bool, appConnected: Bool, to output: FileHandle) throws {
-    let payload = try JSONSerialization.data(withJSONObject: [
+private func writeMessage(
+    active: Bool,
+    visitToken: String?,
+    appConnected: Bool,
+    to output: FileHandle
+) throws {
+    var response: [String: Any] = [
         "ok": true,
         "active": active,
         "appConnected": appConnected,
-    ])
+    ]
+    if let visitToken {
+        response["visitToken"] = visitToken
+    }
+    let payload = try JSONSerialization.data(withJSONObject: response)
     guard payload.count <= maximumMessageLength else {
         throw CocoaError(.fileWriteOutOfSpace)
     }
@@ -136,13 +164,21 @@ let output = FileHandle.standardOutput
 private let applicationConnection = ApplicationConnection()
 
 do {
-    while let active = try readMessage(from: input) {
-        let connected = applicationConnection.send(active: active)
-        try writeMessage(active: active, appConnected: connected, to: output)
+    while let state = try readMessage(from: input) {
+        let connected = applicationConnection.send(
+            active: state.active,
+            visitToken: state.visitToken
+        )
+        try writeMessage(
+            active: state.active,
+            visitToken: state.visitToken,
+            appConnected: connected,
+            to: output
+        )
     }
-    _ = applicationConnection.send(active: false)
+    _ = applicationConnection.send(active: false, visitToken: nil)
 } catch {
-    _ = applicationConnection.send(active: false)
+    _ = applicationConnection.send(active: false, visitToken: nil)
     FileHandle.standardError.write(Data("Native messaging error: \(error)\n".utf8))
     exit(1)
 }

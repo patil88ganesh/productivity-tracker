@@ -72,6 +72,7 @@ public partial class MainWindow : Window
     private bool isClosing;
     private bool socialMediaPauseEnabled;
     private bool browserReportsDistractingSite;
+    private string? browserVisitToken;
     private StatsWindow? statsWindow;
 
     public MainWindow()
@@ -209,6 +210,19 @@ public partial class MainWindow : Window
         ToggleTracking();
     }
 
+    private void ContinueCountingMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (tracker.HasContinueCountingOverride)
+        {
+            tracker.CancelContinueCountingOnDistractingWebsite();
+        }
+        else
+        {
+            tracker.ContinueCountingOnDistractingWebsite();
+        }
+        RefreshDisplay();
+    }
+
     private void ResetMenuItem_Click(object sender, RoutedEventArgs e)
     {
         StopCompletionAlert();
@@ -262,7 +276,12 @@ public partial class MainWindow : Window
         socialMediaPauseEnabled = SocialMediaPauseMenuItem.IsChecked;
         SaveBooleanSetting(SocialMediaPauseRegistryValue, socialMediaPauseEnabled);
         tracker.OnDistractingWebsiteChanged(
-            socialMediaPauseEnabled && browserReportsDistractingSite);
+            socialMediaPauseEnabled && browserReportsDistractingSite,
+            browserVisitToken);
+        if (!socialMediaPauseEnabled)
+        {
+            tracker.CancelContinueCountingOnDistractingWebsite();
+        }
         RefreshDisplay();
 
         if (socialMediaPauseEnabled &&
@@ -387,6 +406,12 @@ public partial class MainWindow : Window
                     : displayTime < TimeSpan.FromSeconds(1)
                         ? "Start"
                         : "Resume";
+        ContinueCountingMenuItem.IsEnabled =
+            tracker.HasContinueCountingOverride ||
+            tracker.CanContinueCountingOnDistractingWebsite;
+        ContinueCountingMenuItem.Header = tracker.HasContinueCountingOverride
+            ? "Stop counting this site"
+            : "Continue counting";
 
         TimeDisplay.Foreground = tracker.IsTimerCompleted
             ? completionBrush
@@ -407,9 +432,13 @@ public partial class MainWindow : Window
 
         StatusIndicator.ToolTip = tracker.IsAutomaticallyPaused
             ? "Paused automatically while a distracting site is active"
-            : tracker.IsRunning
-                ? "Running"
-                : "Paused";
+            : tracker.IsTimerCompleted
+                ? "Timer complete"
+                : tracker.IsRunning
+                    ? tracker.IsContinuingCountingOnDistractingWebsite
+                        ? "Running - selected website counted as productive"
+                        : "Running"
+                    : "Paused";
 
         if (statsWindow?.IsVisible == true)
         {
@@ -621,7 +650,7 @@ public partial class MainWindow : Window
             : defaultValue;
     }
 
-    private void OnBrowserActivityChanged(bool active)
+    private void OnBrowserActivityChanged(bool active, string? visitToken)
     {
         if (isClosing || Dispatcher.HasShutdownStarted)
         {
@@ -636,7 +665,10 @@ public partial class MainWindow : Window
             }
 
             browserReportsDistractingSite = active;
-            tracker.OnDistractingWebsiteChanged(socialMediaPauseEnabled && active);
+            browserVisitToken = visitToken;
+            tracker.OnDistractingWebsiteChanged(
+                socialMediaPauseEnabled && active,
+                visitToken);
             RefreshDisplay();
         });
     }
