@@ -405,3 +405,17 @@ regenerated prompt diff is byte-identical to the live tree, all three suites pas
 implementations remain behaviourally aligned. No high-confidence issue remains.
 
 _This re-review made no changes to any source file._
+
+## macOS Release Validation
+
+- **Date**: 2026-09-05
+- **GitHub Actions run**: `33970994831`
+- **Source commit**: `4010e6a5b1bb39769edd40cf33a8124f6cca84fb`
+- **macOS arm64**: succeeded on `macos-15`; artifact `9970911412`,
+  SHA-256 `3dbe124e845d1b240c708e1a9324896f6070a5e378e19407aed537c51ca8f2e6`
+- **macOS x64**: succeeded on `macos-15-intel`; artifact `9970914500`,
+  SHA-256 `29318bff285911bad1927df774ce855d6fbb6575d7a98798aaafbbbd23ab70b8`
+
+Both supported macOS architectures compiled and packaged successfully from the
+reviewed source commit. This closes the only unchecked item in the round-six
+evidence checklist before publishing version 2.8.0.
