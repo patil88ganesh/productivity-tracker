@@ -19,6 +19,7 @@ var tests = new (string Name, Action Run)[]
     ("Added time preserves a running stopwatch", AddedTimePreservesRunningStopwatch),
     ("Add and start exits countdown mode", AddAndStartExitsCountdownMode),
     ("Distracting site pauses and resumes tracking", DistractingSitePausesAndResumesTracking),
+    ("Playback control is blocked by active pause reasons", PlaybackControlBlockedByActivePauseReason),
     ("Lock and distracting site require both to clear", AutomaticPauseReasonsMustBothClear),
     ("Manual stop during automatic pause prevents resume", ManualStopDuringAutomaticPausePreventsResume),
     ("Daily stats count only active tracking", DailyStatsCountOnlyActiveTracking),
@@ -294,6 +295,22 @@ static void DistractingSitePausesAndResumesTracking()
 
     True(tracker.IsRunning);
     Equal(TimeSpan.FromMinutes(10), tracker.DisplayTime);
+}
+
+static void PlaybackControlBlockedByActivePauseReason()
+{
+    var tracker = new TrackingController(new FakeClock());
+
+    tracker.Toggle();
+    tracker.Toggle();
+    tracker.OnDistractingWebsiteChanged(isActive: true);
+
+    False(tracker.IsAutomaticallyPaused);
+    True(tracker.IsPlaybackControlBlocked);
+
+    tracker.OnDistractingWebsiteChanged(isActive: false);
+
+    False(tracker.IsPlaybackControlBlocked);
 }
 
 static void AutomaticPauseReasonsMustBothClear()

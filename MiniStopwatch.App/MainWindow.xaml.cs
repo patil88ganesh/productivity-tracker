@@ -43,6 +43,8 @@ public partial class MainWindow : Window
     private const double DefaultWidth = 184;
     private const double DefaultHeight = 58;
     private const double StatsWindowGap = 4;
+    private const double PlaybackButtonGap = 2;
+    private const double PlaybackButtonTopOffset = 8;
 
     private readonly TrackingController tracker = new(new SystemMonotonicClock());
     private readonly DailyStatsStore dailyStatsStore;
@@ -50,6 +52,7 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer completionFlashTimer;
     private readonly MenuItem[] opacityMenuItems;
     private readonly SocialMediaPauseBridge socialMediaPauseBridge;
+    private readonly PlaybackButtonWindow playbackButtonWindow;
     private readonly SolidColorBrush normalBorderBrush =
         new(Color.FromArgb(0x7F, 0x9A, 0xA0, 0xA5));
     private readonly SolidColorBrush hoverBorderBrush =
@@ -77,6 +80,12 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        playbackButtonWindow = new PlaybackButtonWindow(() =>
+        {
+            HideStatsWindow();
+            ToggleTracking();
+        });
+        Loaded += (_, _) => ShowPlaybackButton();
         dailyStatsStore = DailyStatsStore.Load(ReportStatsPersistenceError);
 
         opacityMenuItems =
@@ -318,26 +327,27 @@ public partial class MainWindow : Window
         if (WindowState == WindowState.Minimized)
         {
             HideStatsWindow();
+            playbackButtonWindow.Hide();
             return;
         }
 
-        if (WindowState == WindowState.Normal)
-        {
-            HideStatsWindow();
-            ShowInTaskbar = false;
-            Topmost = true;
-        }
+        HideStatsWindow();
+        ShowInTaskbar = false;
+        Topmost = true;
+        ShowPlaybackButton();
     }
 
     private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         ScaleDisplay();
         PositionStatsWindow();
+        PositionPlaybackButton();
     }
 
     private void Window_LocationChanged(object? sender, EventArgs e)
     {
         PositionStatsWindow();
+        PositionPlaybackButton();
     }
 
     private void TrackerBorder_MouseEnter(object sender, MouseEventArgs e)
@@ -412,6 +422,11 @@ public partial class MainWindow : Window
                 : tracker.IsRunning
                     ? "Running"
                     : "Paused";
+        playbackButtonWindow.UpdateState(
+            tracker.IsRunning,
+            tracker.IsPlaybackControlBlocked,
+            tracker.IsTimerCompleted,
+            displayTime < TimeSpan.FromSeconds(1));
 
         if (statsWindow?.IsVisible == true)
         {
@@ -512,6 +527,7 @@ public partial class MainWindow : Window
         }
 
         Opacity = opacityPercent / 100d;
+        playbackButtonWindow.Opacity = Opacity;
         if (statsWindow != null)
         {
             statsWindow.Opacity = Opacity;
@@ -590,6 +606,77 @@ public partial class MainWindow : Window
         statsWindow.Left = left;
         statsWindow.Top = top;
         statsWindow.Topmost = true;
+    }
+
+    private void ShowPlaybackButton()
+    {
+        if (isClosing || WindowState == WindowState.Minimized)
+        {
+            return;
+        }
+
+        if (playbackButtonWindow.Owner == null)
+        {
+            playbackButtonWindow.Owner = this;
+        }
+
+        PositionPlaybackButton();
+        if (!playbackButtonWindow.IsVisible)
+        {
+            playbackButtonWindow.Show();
+        }
+
+        playbackButtonWindow.Topmost = true;
+        playbackButtonWindow.Opacity = Opacity;
+    }
+
+    private void PositionPlaybackButton()
+    {
+        if (WindowState == WindowState.Minimized)
+        {
+            return;
+        }
+
+        var trackerBounds = GetCurrentWindowBounds();
+        var trackerWidth = trackerBounds.Width;
+        var trackerHeight = trackerBounds.Height;
+        var workArea = GetCurrentMonitorWorkArea();
+        var preferredTop = Math.Clamp(
+            trackerBounds.Top - PlaybackButtonTopOffset,
+            workArea.Top,
+            Math.Max(workArea.Top, workArea.Bottom - playbackButtonWindow.Height));
+        var right = trackerBounds.Left + trackerWidth + PlaybackButtonGap;
+        if (right + playbackButtonWindow.Width <= workArea.Right)
+        {
+            playbackButtonWindow.Left = right;
+            playbackButtonWindow.Top = preferredTop;
+            return;
+        }
+
+        var left = trackerBounds.Left - playbackButtonWindow.Width - PlaybackButtonGap;
+        if (left >= workArea.Left)
+        {
+            playbackButtonWindow.Left = left;
+            playbackButtonWindow.Top = preferredTop;
+            return;
+        }
+
+        playbackButtonWindow.Left = Math.Clamp(
+            trackerBounds.Left + trackerWidth - playbackButtonWindow.Width,
+            workArea.Left,
+            Math.Max(workArea.Left, workArea.Right - playbackButtonWindow.Width));
+        var above = trackerBounds.Top - playbackButtonWindow.Height - PlaybackButtonGap;
+        if (above >= workArea.Top)
+        {
+            playbackButtonWindow.Top = above;
+            return;
+        }
+
+        var below = trackerBounds.Top + trackerHeight + PlaybackButtonGap;
+        playbackButtonWindow.Top =
+            below + playbackButtonWindow.Height <= workArea.Bottom
+                ? below
+                : preferredTop;
     }
 
     private TimeSpan? GetMaximumStatsDuration()
@@ -764,6 +851,31 @@ public partial class MainWindow : Window
             windowRect.Right - windowRect.Left,
             windowRect.Bottom - windowRect.Top,
             borderThickness);
+    }
+
+    private Rect GetCurrentWindowBounds()
+    {
+        var handle = new WindowInteropHelper(this).Handle;
+        if (handle == IntPtr.Zero || !GetWindowRect(handle, out var windowRect))
+        {
+            return new Rect(
+                Left,
+                Top,
+                ActualWidth > 0 ? ActualWidth : Width,
+                ActualHeight > 0 ? ActualHeight : Height);
+        }
+
+        var dpiScale = GetDpiForWindow(handle) / 96d;
+        if (dpiScale <= 0)
+        {
+            dpiScale = 1;
+        }
+
+        return new Rect(
+            windowRect.Left / dpiScale,
+            windowRect.Top / dpiScale,
+            (windowRect.Right - windowRect.Left) / dpiScale,
+            (windowRect.Bottom - windowRect.Top) / dpiScale);
     }
 
     private Rect GetCurrentMonitorWorkArea()

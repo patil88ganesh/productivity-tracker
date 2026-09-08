@@ -23,6 +23,10 @@ final class TimerEngine {
         resumeAfterAutomaticPause && !automaticPauseReasons.isEmpty
     }
 
+    var isPlaybackControlBlocked: Bool {
+        !automaticPauseReasons.isEmpty
+    }
+
     var displayTime: TimeInterval {
         guard let duration = timerDuration else {
             return elapsed

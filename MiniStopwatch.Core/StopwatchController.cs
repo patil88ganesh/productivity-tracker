@@ -24,6 +24,8 @@ public sealed class StopwatchController
     public bool IsAutomaticallyPaused =>
         resumeAfterAutomaticPause && automaticPauseReasons.Count > 0;
 
+    public bool IsPlaybackControlBlocked => automaticPauseReasons.Count > 0;
+
     public TimeSpan Elapsed =>
         IsRunning ? accumulated + (clock.Now - startedAt) : accumulated;
 

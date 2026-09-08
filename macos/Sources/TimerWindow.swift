@@ -177,6 +177,213 @@ final class TimerDisplayView: NSView {
     }
 }
 
+private final class PlaybackButtonPanel: NSPanel {
+    override var canBecomeKey: Bool { false }
+    override var canBecomeMain: Bool { false }
+}
+
+private enum PlaybackButtonLayout {
+    static let panelSize: CGFloat = 30
+    static let surfaceInset: CGFloat = 4
+    static let gap: CGFloat = 2
+    static let topOverhang: CGFloat = 4
+}
+
+private final class PlaybackButtonView: NSView {
+    var onToggle: (() -> Void)?
+
+    private var showsPause = false
+    private var controlEnabled = true
+    private var isHovering = false
+    private var isPressed = false
+    private var trackingAreaReference: NSTrackingArea?
+
+    private var interactiveBounds: NSRect {
+        bounds.insetBy(
+            dx: PlaybackButtonLayout.surfaceInset,
+            dy: PlaybackButtonLayout.surfaceInset
+        )
+    }
+
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        let localPoint = convert(point, from: superview)
+        return interactiveBounds.contains(localPoint) ? super.hitTest(point) : nil
+    }
+
+    override func updateTrackingAreas() {
+        if let trackingAreaReference {
+            removeTrackingArea(trackingAreaReference)
+        }
+        let area = NSTrackingArea(
+            rect: interactiveBounds,
+            options: [.activeAlways, .mouseEnteredAndExited],
+            owner: self,
+            userInfo: nil
+        )
+        addTrackingArea(area)
+        trackingAreaReference = area
+        super.updateTrackingAreas()
+    }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        true
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        isHovering = true
+        needsDisplay = true
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        isHovering = false
+        isPressed = false
+        needsDisplay = true
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        guard controlEnabled else {
+            return
+        }
+        isPressed = true
+        needsDisplay = true
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        guard isPressed else {
+            return
+        }
+        isPressed = false
+        needsDisplay = true
+        if controlEnabled &&
+            interactiveBounds.contains(
+                convert(event.locationInWindow, from: nil)
+            ) {
+            onToggle?()
+        }
+    }
+
+    func updateState(
+        isRunning: Bool,
+        isBlockedByAutomaticPause: Bool,
+        isTimerCompleted: Bool,
+        isAtZero: Bool
+    ) {
+        showsPause = isRunning
+        controlEnabled = !isBlockedByAutomaticPause
+        if !controlEnabled {
+            isPressed = false
+        }
+        toolTip = isBlockedByAutomaticPause
+            ? "Unavailable during automatic pause"
+            : isRunning
+                ? "Pause"
+                : isTimerCompleted
+                    ? "Restart timer"
+                    : isAtZero
+                        ? "Start"
+                        : "Resume"
+        needsDisplay = true
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+
+        let accentColor: NSColor
+        if !controlEnabled {
+            accentColor = NSColor(
+                calibratedRed: 0.48,
+                green: 0.52,
+                blue: 0.55,
+                alpha: 1
+            )
+        } else if showsPause {
+            accentColor = NSColor(
+                calibratedRed: 0.95,
+                green: 0.55,
+                blue: 0,
+                alpha: 1
+            )
+        } else {
+            accentColor = NSColor(
+                calibratedRed: 0,
+                green: 0.72,
+                blue: 0.31,
+                alpha: 1
+            )
+        }
+
+        let square = interactiveBounds
+        let path = NSBezierPath(
+            roundedRect: square,
+            xRadius: 4,
+            yRadius: 4
+        )
+        let surfaceAlpha = (isHovering ? 1 : 0.9) *
+            (controlEnabled ? (isPressed ? 0.72 : 1) : 0.58)
+        NSColor.white.withAlphaComponent(surfaceAlpha).setFill()
+        path.fill()
+        accentColor.withAlphaComponent(controlEnabled ? 1 : 0.58).setStroke()
+        path.lineWidth = 1.5
+        path.stroke()
+
+        accentColor.withAlphaComponent(controlEnabled ? 1 : 0.58).setFill()
+        if showsPause {
+            NSBezierPath(
+                roundedRect: NSRect(x: 10, y: 8, width: 4, height: 14),
+                xRadius: 1,
+                yRadius: 1
+            ).fill()
+            NSBezierPath(
+                roundedRect: NSRect(x: 17, y: 8, width: 4, height: 14),
+                xRadius: 1,
+                yRadius: 1
+            ).fill()
+        } else {
+            let playPath = NSBezierPath()
+            playPath.move(to: NSPoint(x: 11, y: 8))
+            playPath.line(to: NSPoint(x: 21, y: 15))
+            playPath.line(to: NSPoint(x: 11, y: 22))
+            playPath.close()
+            playPath.fill()
+        }
+    }
+}
+
+private final class PlaybackButtonController: NSWindowController {
+    let buttonView: PlaybackButtonView
+
+    init() {
+        buttonView = PlaybackButtonView(
+            frame: NSRect(
+                x: 0,
+                y: 0,
+                width: PlaybackButtonLayout.panelSize,
+                height: PlaybackButtonLayout.panelSize
+            )
+        )
+        let panel = PlaybackButtonPanel(
+            contentRect: buttonView.frame,
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = true
+        panel.level = .floating
+        panel.hidesOnDeactivate = false
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        panel.becomesKeyOnlyIfNeeded = true
+        panel.isMovable = false
+        panel.contentView = buttonView
+        super.init(window: panel)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+}
+
 final class TimerWindowController: NSWindowController, NSWindowDelegate {
     private enum Settings {
         static let frame = "ProductivityTracker.WindowFrame"
@@ -189,6 +396,7 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
     private let displayView: TimerDisplayView
     private let statsRecorder: DailyStatsRecorder
     private let statsWidgetController = StatsWidgetController()
+    private let playbackButtonController = PlaybackButtonController()
     private let defaults = UserDefaults.standard
     private var refreshTimer: Foundation.Timer?
     private var flashTimer: Foundation.Timer?
@@ -251,6 +459,15 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
         displayView.onMiddleClick = { [weak self] in
             self?.toggleTracking()
         }
+        playbackButtonController.buttonView.onToggle = { [weak self] in
+            self?.dismissStatsWidget()
+            self?.toggleTracking()
+        }
+        if let playbackWindow = playbackButtonController.window {
+            positionPlaybackButton()
+            window.addChildWindow(playbackWindow, ordered: .above)
+            playbackWindow.orderFront(nil)
+        }
 
         focusSocketServer = FocusSocketServer { [weak self] active in
             guard let self else {
@@ -295,6 +512,7 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
         focusSocketServer?.stop()
         statsWidgetController.hide()
         statsWidgetController.close()
+        playbackButtonController.close()
     }
 
     func showWindowAndActivate() {
@@ -303,6 +521,7 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
         }
         showWindow(nil)
         window?.makeKeyAndOrderFront(nil)
+        showPlaybackButton()
         NSApp.activate(ignoringOtherApps: true)
     }
 
@@ -327,26 +546,31 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
         recordStats(forceSave: true)
         statsWidgetController.hide()
         statsWidgetController.close()
+        playbackButtonController.close()
     }
 
     func windowDidMove(_ notification: Notification) {
         saveState()
         positionStatsWidget()
+        positionPlaybackButton()
     }
 
     func windowDidResize(_ notification: Notification) {
         saveState()
         displayView.needsDisplay = true
         positionStatsWidget()
+        positionPlaybackButton()
     }
 
     func windowWillMiniaturize(_ notification: Notification) {
         dismissStatsWidget()
+        playbackButtonController.window?.orderOut(nil)
     }
 
     func windowDidDeminiaturize(_ notification: Notification) {
         window?.level = .floating
         statsWidgetController.window?.level = .floating
+        showPlaybackButton()
     }
 
     @objc private func toggleTracking() {
@@ -586,6 +810,12 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
             )
             displayView.toolTip = "Paused"
         }
+        playbackButtonController.buttonView.updateState(
+            isRunning: engine.isRunning,
+            isBlockedByAutomaticPause: engine.isPlaybackControlBlocked,
+            isTimerCompleted: engine.isTimerCompleted,
+            isAtZero: displayTime < 1
+        )
         statsWidgetController.update(rows: statsRecorder.rows(for: sampleDate))
     }
 
@@ -713,6 +943,7 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
         let alpha = CGFloat(opacity) / 100
         window?.alphaValue = alpha
         statsWidgetController.window?.alphaValue = alpha
+        playbackButtonController.window?.alphaValue = alpha
         for item in opacityMenuItems {
             item.state = (item.representedObject as? Int) == opacity ? .on : .off
         }
@@ -767,6 +998,7 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
               let statsWindow = statsWidgetController.window else {
             return
         }
+
         let width = min(
             max(parentFrame.width, StatsWidgetController.minimumWidth),
             320
@@ -789,6 +1021,74 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
             height: StatsWidgetController.height
         )
         statsWindow.setFrame(frame, display: true)
+    }
+
+    private func showPlaybackButton() {
+        guard window?.isMiniaturized != true,
+              let parentWindow = window,
+              let playbackWindow = playbackButtonController.window else {
+            return
+        }
+        if playbackWindow.parent !== parentWindow {
+            parentWindow.addChildWindow(playbackWindow, ordered: .above)
+        }
+        playbackWindow.level = parentWindow.level
+        playbackWindow.alphaValue = parentWindow.alphaValue
+        positionPlaybackButton()
+        playbackWindow.orderFront(nil)
+    }
+
+    private func positionPlaybackButton() {
+        guard window?.isMiniaturized != true,
+              let parentWindow = window,
+              let playbackWindow = playbackButtonController.window else {
+            return
+        }
+
+        let parentFrame = parentWindow.frame
+        let visibleFrame = parentWindow.screen?.visibleFrame
+            ?? NSScreen.main?.visibleFrame
+            ?? parentFrame
+        var x = parentFrame.maxX + PlaybackButtonLayout.gap
+        let preferredY = min(
+            max(
+                parentFrame.maxY
+                    + PlaybackButtonLayout.topOverhang
+                    + PlaybackButtonLayout.surfaceInset
+                    - playbackWindow.frame.height,
+                visibleFrame.minY
+            ),
+            visibleFrame.maxY - playbackWindow.frame.height
+        )
+        if x + playbackWindow.frame.width <= visibleFrame.maxX {
+            playbackWindow.setFrameOrigin(NSPoint(x: x, y: preferredY))
+            return
+        }
+
+        x = parentFrame.minX
+            - playbackWindow.frame.width
+            - PlaybackButtonLayout.gap
+        if x >= visibleFrame.minX {
+            playbackWindow.setFrameOrigin(NSPoint(x: x, y: preferredY))
+            return
+        }
+
+        x = min(
+            max(parentFrame.maxX - playbackWindow.frame.width, visibleFrame.minX),
+            visibleFrame.maxX - playbackWindow.frame.width
+        )
+        let above = parentFrame.maxY + PlaybackButtonLayout.gap
+        if above + playbackWindow.frame.height <= visibleFrame.maxY {
+            playbackWindow.setFrameOrigin(NSPoint(x: x, y: above))
+            return
+        }
+
+        let below = parentFrame.minY
+            - playbackWindow.frame.height
+            - PlaybackButtonLayout.gap
+        playbackWindow.setFrameOrigin(
+            NSPoint(x: x, y: below >= visibleFrame.minY ? below : preferredY)
+        )
     }
 
     private var maximumStatsDuration: TimeInterval? {

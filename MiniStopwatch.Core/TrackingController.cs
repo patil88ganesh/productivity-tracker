@@ -13,6 +13,8 @@ public sealed class TrackingController
 
     public bool IsAutomaticallyPaused => stopwatch.IsAutomaticallyPaused;
 
+    public bool IsPlaybackControlBlocked => stopwatch.IsPlaybackControlBlocked;
+
     public bool IsTimerMode => TimerDuration.HasValue;
 
     public bool IsTimerCompleted { get; private set; }
