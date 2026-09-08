@@ -218,3 +218,14 @@ _Updated by the driving agent as findings are addressed._
 ## Final Verdict
 
 **CLEAN** — no runtime, visual, documentation, or release-hygiene issues remain.
+
+## macOS Release Validation
+
+- **Workflow run**: `34247650339`
+- **Commit**: `5ca7fd15ba70fdf3f76cea9c32326234fa8eee08`
+- **arm64 job**: `102133669976` on `macos-15` — success
+- **x64 job**: `102133669826` on `macos-15-intel` — success
+- **arm64 artifact**: `10064670814`,
+  `sha256:712f378559642f82ded8aacfea63fc8fde0ff91efdb62f9206b6547c1fc33c91`
+- **x64 artifact**: `10064682727`,
+  `sha256:2edb4821dc2bf0825ebbd761e9f70bb867b83158db97c38580c1d867fd589007`
