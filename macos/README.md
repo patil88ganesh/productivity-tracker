@@ -3,7 +3,7 @@
 The macOS port is a dependency-free Swift/AppKit application with feature parity
 with the Windows timer. It supports macOS 12 or later on Apple silicon and Intel.
 
-The timer includes a small square Play/Pause button attached outside its
+The timer includes a compact square Play/Pause button attached above its
 top-right corner. It moves, minimizes, and changes opacity with the timer while
 preserving middle-click control on the clock itself.
 

@@ -864,24 +864,24 @@ kbd {
 
 .context-playback-button {
   position: absolute;
-  top: -10px;
-  right: -30px;
+  top: -20px;
+  right: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 3px;
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
   border: 1.5px solid #f28c00;
-  border-radius: 4px;
+  border-radius: 3px;
   background: rgba(255, 255, 255, 0.92);
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.26);
 }
 
 .context-playback-button b {
   display: block;
-  width: 3px;
-  height: 11px;
+  width: 2.5px;
+  height: 9px;
   border-radius: 1px;
   background: #f28c00;
 }

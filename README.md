@@ -3,15 +3,15 @@
 Productivity Tracker is a compact, semi-transparent, always-on-top stopwatch
 and countdown timer for Windows and macOS.
 
-## Downloads — version 2.9.0
+## Downloads — version 2.9.1
 
-- **Windows 10/11 x64:** [ProductivityTracker-Setup.exe](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.9.0/ProductivityTracker-Setup.exe)
-- **macOS 12+ Apple silicon:** [ProductivityTracker-macOS-arm64.app.zip](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.9.0/ProductivityTracker-macOS-arm64.app.zip)
-- **macOS 12+ Intel:** [ProductivityTracker-macOS-x64.app.zip](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.9.0/ProductivityTracker-macOS-x64.app.zip)
+- **Windows 10/11 x64:** [ProductivityTracker-Setup.exe](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.9.1/ProductivityTracker-Setup.exe)
+- **macOS 12+ Apple silicon:** [ProductivityTracker-macOS-arm64.app.zip](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.9.1/ProductivityTracker-macOS-arm64.app.zip)
+- **macOS 12+ Intel:** [ProductivityTracker-macOS-x64.app.zip](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.9.1/ProductivityTracker-macOS-x64.app.zip)
 
 Release downloads will be published under:
 
-`https://github.com/patil88ganesh/productivity-tracker/releases/tag/v2.9.0`
+`https://github.com/patil88ganesh/productivity-tracker/releases/tag/v2.9.1`
 
 The macOS build is a beta with an ad-hoc signature and is not notarized. After
 extracting the zip, move `ProductivityTracker.app` to Applications and try to
@@ -23,7 +23,7 @@ confirm **Open**. Do not bypass Gatekeeper globally.
 ## Features and controls
 
 - Middle-click the timer to pause or resume.
-- Left-click the attached square Play/Pause button at the clock's top-right.
+- Left-click the smaller square Play/Pause button above the clock's top-right.
 - The button follows the clock when moved, resized, minimized, or made
   transparent. It is disabled whenever a lock or Focus Protection pause reason
   is active, even if tracking was already paused manually.

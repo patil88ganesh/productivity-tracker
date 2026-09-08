@@ -183,10 +183,16 @@ private final class PlaybackButtonPanel: NSPanel {
 }
 
 private enum PlaybackButtonLayout {
-    static let panelSize: CGFloat = 30
+    static let panelSize: CGFloat = 26
     static let surfaceInset: CGFloat = 4
     static let gap: CGFloat = 2
-    static let topOverhang: CGFloat = 4
+    static var trailingExtent: CGFloat {
+        panelSize - surfaceInset
+    }
+}
+
+private enum StatsWidgetLayout {
+    static let gap: CGFloat = 4
 }
 
 private final class PlaybackButtonView: NSView {
@@ -315,8 +321,8 @@ private final class PlaybackButtonView: NSView {
         let square = interactiveBounds
         let path = NSBezierPath(
             roundedRect: square,
-            xRadius: 4,
-            yRadius: 4
+            xRadius: 3,
+            yRadius: 3
         )
         let surfaceAlpha = (isHovering ? 1 : 0.9) *
             (controlEnabled ? (isPressed ? 0.72 : 1) : 0.58)
@@ -328,21 +334,39 @@ private final class PlaybackButtonView: NSView {
 
         accentColor.withAlphaComponent(controlEnabled ? 1 : 0.58).setFill()
         if showsPause {
+            let barHeight: CGFloat = 12
+            let barWidth: CGFloat = 3
             NSBezierPath(
-                roundedRect: NSRect(x: 10, y: 8, width: 4, height: 14),
+                roundedRect: NSRect(
+                    x: square.midX - 5,
+                    y: square.midY - barHeight / 2,
+                    width: barWidth,
+                    height: barHeight
+                ),
                 xRadius: 1,
                 yRadius: 1
             ).fill()
             NSBezierPath(
-                roundedRect: NSRect(x: 17, y: 8, width: 4, height: 14),
+                roundedRect: NSRect(
+                    x: square.midX + 2,
+                    y: square.midY - barHeight / 2,
+                    width: barWidth,
+                    height: barHeight
+                ),
                 xRadius: 1,
                 yRadius: 1
             ).fill()
         } else {
             let playPath = NSBezierPath()
-            playPath.move(to: NSPoint(x: 11, y: 8))
-            playPath.line(to: NSPoint(x: 21, y: 15))
-            playPath.line(to: NSPoint(x: 11, y: 22))
+            playPath.move(
+                to: NSPoint(x: square.midX - 3.5, y: square.midY - 5)
+            )
+            playPath.line(
+                to: NSPoint(x: square.midX + 3.5, y: square.midY)
+            )
+            playPath.line(
+                to: NSPoint(x: square.midX - 3.5, y: square.midY + 5)
+            )
             playPath.close()
             playPath.fill()
         }
@@ -551,15 +575,15 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
 
     func windowDidMove(_ notification: Notification) {
         saveState()
-        positionStatsWidget()
         positionPlaybackButton()
+        positionStatsWidget()
     }
 
     func windowDidResize(_ notification: Notification) {
         saveState()
         displayView.needsDisplay = true
-        positionStatsWidget()
         positionPlaybackButton()
+        positionStatsWidget()
     }
 
     func windowWillMiniaturize(_ notification: Notification) {
@@ -985,6 +1009,7 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
         }
         statsWindow.level = parentWindow.level
         statsWindow.alphaValue = parentWindow.alphaValue
+        positionPlaybackButton()
         positionStatsWidget()
         statsWidgetController.show { [weak self] in
             self?.dismissStatsWidget()
@@ -1003,17 +1028,75 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
             max(parentFrame.width, StatsWidgetController.minimumWidth),
             320
         )
-        let visibleFrame = window?.screen?.visibleFrame ?? NSScreen.main?.visibleFrame
+        let visibleFrame = window?.screen?.visibleFrame
+            ?? NSScreen.main?.visibleFrame
         let desiredX = parentFrame.midX - width / 2
-        let x = visibleFrame.map {
+        var x = visibleFrame.map {
             min(max(desiredX, $0.minX), $0.maxX - width)
         } ?? desiredX
-        let belowY = parentFrame.minY - StatsWidgetController.height + 3
-        let y = visibleFrame.map {
+        var belowY = parentFrame.minY - StatsWidgetController.height + 3
+        var aboveY = parentFrame.maxY - 3
+        let visiblePlaybackFrame = playbackButtonController.window.flatMap {
+            $0.isVisible ? $0.frame : nil
+        }
+        if let playbackFrame = visiblePlaybackFrame,
+           x < playbackFrame.maxX,
+           x + width > playbackFrame.minX {
+            if playbackFrame.midY < parentFrame.midY {
+                belowY = min(
+                    belowY,
+                    playbackFrame.minY
+                        - StatsWidgetController.height
+                        - StatsWidgetLayout.gap
+                )
+            } else {
+                aboveY = max(
+                    aboveY,
+                    playbackFrame.maxY + StatsWidgetLayout.gap
+                )
+            }
+        }
+        var y = visibleFrame.map {
             belowY >= $0.minY
                 ? belowY
-                : min(parentFrame.maxY - 3, $0.maxY - StatsWidgetController.height)
+                : min(
+                    aboveY,
+                    $0.maxY - StatsWidgetController.height
+                )
         } ?? belowY
+        if let visibleFrame,
+           let playbackFrame = visiblePlaybackFrame {
+            let statsFrame = NSRect(
+                x: x,
+                y: y,
+                width: width,
+                height: StatsWidgetController.height
+            )
+            if statsFrame.intersects(playbackFrame) {
+                let leftOfPlayback = playbackFrame.minX
+                    - width
+                    - StatsWidgetLayout.gap
+                let rightOfPlayback = playbackFrame.maxX
+                    + StatsWidgetLayout.gap
+                if leftOfPlayback >= visibleFrame.minX {
+                    x = leftOfPlayback
+                } else if rightOfPlayback + width <= visibleFrame.maxX {
+                    x = rightOfPlayback
+                } else {
+                    let belowPlayback = playbackFrame.minY
+                        - StatsWidgetController.height
+                        - StatsWidgetLayout.gap
+                    let abovePlayback = playbackFrame.maxY
+                        + StatsWidgetLayout.gap
+                    if belowPlayback >= visibleFrame.minY {
+                        y = belowPlayback
+                    } else if abovePlayback + StatsWidgetController.height
+                        <= visibleFrame.maxY {
+                        y = abovePlayback
+                    }
+                }
+            }
+        }
         let frame = NSRect(
             x: x,
             y: y,
@@ -1049,46 +1132,53 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
         let visibleFrame = parentWindow.screen?.visibleFrame
             ?? NSScreen.main?.visibleFrame
             ?? parentFrame
-        var x = parentFrame.maxX + PlaybackButtonLayout.gap
-        let preferredY = min(
+        let alignedX = min(
             max(
-                parentFrame.maxY
-                    + PlaybackButtonLayout.topOverhang
-                    + PlaybackButtonLayout.surfaceInset
-                    - playbackWindow.frame.height,
-                visibleFrame.minY
+                parentFrame.maxX - PlaybackButtonLayout.trailingExtent,
+                visibleFrame.minX
             ),
-            visibleFrame.maxY - playbackWindow.frame.height
-        )
-        if x + playbackWindow.frame.width <= visibleFrame.maxX {
-            playbackWindow.setFrameOrigin(NSPoint(x: x, y: preferredY))
-            return
-        }
-
-        x = parentFrame.minX
-            - playbackWindow.frame.width
-            - PlaybackButtonLayout.gap
-        if x >= visibleFrame.minX {
-            playbackWindow.setFrameOrigin(NSPoint(x: x, y: preferredY))
-            return
-        }
-
-        x = min(
-            max(parentFrame.maxX - playbackWindow.frame.width, visibleFrame.minX),
             visibleFrame.maxX - playbackWindow.frame.width
         )
-        let above = parentFrame.maxY + PlaybackButtonLayout.gap
+        let above = parentFrame.maxY
+            + PlaybackButtonLayout.gap
+            - PlaybackButtonLayout.surfaceInset
         if above + playbackWindow.frame.height <= visibleFrame.maxY {
-            playbackWindow.setFrameOrigin(NSPoint(x: x, y: above))
+            playbackWindow.setFrameOrigin(NSPoint(x: alignedX, y: above))
             return
         }
 
         let below = parentFrame.minY
-            - playbackWindow.frame.height
             - PlaybackButtonLayout.gap
-        playbackWindow.setFrameOrigin(
-            NSPoint(x: x, y: below >= visibleFrame.minY ? below : preferredY)
+            - PlaybackButtonLayout.trailingExtent
+        if below >= visibleFrame.minY {
+            playbackWindow.setFrameOrigin(NSPoint(x: alignedX, y: below))
+            return
+        }
+
+        let sideY = min(
+            max(
+                parentFrame.maxY - PlaybackButtonLayout.trailingExtent,
+                visibleFrame.minY
+            ),
+            visibleFrame.maxY - playbackWindow.frame.height
         )
+        var x = parentFrame.maxX
+            + PlaybackButtonLayout.gap
+            - PlaybackButtonLayout.surfaceInset
+        if x + playbackWindow.frame.width <= visibleFrame.maxX {
+            playbackWindow.setFrameOrigin(NSPoint(x: x, y: sideY))
+            return
+        }
+
+        x = parentFrame.minX
+            - PlaybackButtonLayout.gap
+            - PlaybackButtonLayout.trailingExtent
+        if x >= visibleFrame.minX {
+            playbackWindow.setFrameOrigin(NSPoint(x: x, y: sideY))
+            return
+        }
+
+        playbackWindow.setFrameOrigin(NSPoint(x: alignedX, y: sideY))
     }
 
     private var maximumStatsDuration: TimeInterval? {

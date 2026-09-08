@@ -44,7 +44,7 @@ public partial class MainWindow : Window
     private const double DefaultHeight = 58;
     private const double StatsWindowGap = 4;
     private const double PlaybackButtonGap = 2;
-    private const double PlaybackButtonTopOffset = 8;
+    private const double PlaybackButtonSurfaceInset = 4;
 
     private readonly TrackingController tracker = new(new SystemMonotonicClock());
     private readonly DailyStatsStore dailyStatsStore;
@@ -295,6 +295,7 @@ public partial class MainWindow : Window
         };
         statsWindow.Opacity = Opacity;
         statsWindow.UpdateRows(dailyStatsStore.GetLastSevenDays());
+        PositionPlaybackButton();
         PositionStatsWindow(includeHidden: true);
         statsWindow.Show();
     }
@@ -340,14 +341,14 @@ public partial class MainWindow : Window
     private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         ScaleDisplay();
-        PositionStatsWindow();
         PositionPlaybackButton();
+        PositionStatsWindow();
     }
 
     private void Window_LocationChanged(object? sender, EventArgs e)
     {
-        PositionStatsWindow();
         PositionPlaybackButton();
+        PositionStatsWindow();
     }
 
     private void TrackerBorder_MouseEnter(object sender, MouseEventArgs e)
@@ -586,25 +587,26 @@ public partial class MainWindow : Window
             return;
         }
 
-        var trackerWidth = ActualWidth > 0 ? ActualWidth : Width;
-        var trackerHeight = ActualHeight > 0 ? ActualHeight : Height;
+        var trackerBounds = GetCurrentWindowBounds();
+        var trackerWidth = trackerBounds.Width;
         statsWindow.Width = Math.Max(236, Math.Min(trackerWidth, 420));
 
         var workArea = GetCurrentMonitorWorkArea();
-        var left = Left + (trackerWidth - statsWindow.Width) / 2;
-        left = Math.Clamp(
-            left,
-            workArea.Left,
-            Math.Max(workArea.Left, workArea.Right - statsWindow.Width));
+        var layout = CompanionWindowLayout.ResolveStatsWindow(
+            ToLayoutRect(trackerBounds),
+            ToLayoutRect(workArea),
+            statsWindow.Width,
+            statsWindow.Height,
+            StatsWindowGap,
+            new LayoutRect(
+                playbackButtonWindow.Left,
+                playbackButtonWindow.Top,
+                playbackButtonWindow.Width,
+                playbackButtonWindow.Height),
+            playbackButtonWindow.IsVisible);
 
-        var below = Top + trackerHeight + StatsWindowGap;
-        var above = Top - statsWindow.Height - StatsWindowGap;
-        var top = below + statsWindow.Height <= workArea.Bottom
-            ? below
-            : Math.Max(workArea.Top, above);
-
-        statsWindow.Left = left;
-        statsWindow.Top = top;
+        statsWindow.Left = layout.Left;
+        statsWindow.Top = layout.Top;
         statsWindow.Topmost = true;
     }
 
@@ -638,45 +640,16 @@ public partial class MainWindow : Window
         }
 
         var trackerBounds = GetCurrentWindowBounds();
-        var trackerWidth = trackerBounds.Width;
-        var trackerHeight = trackerBounds.Height;
         var workArea = GetCurrentMonitorWorkArea();
-        var preferredTop = Math.Clamp(
-            trackerBounds.Top - PlaybackButtonTopOffset,
-            workArea.Top,
-            Math.Max(workArea.Top, workArea.Bottom - playbackButtonWindow.Height));
-        var right = trackerBounds.Left + trackerWidth + PlaybackButtonGap;
-        if (right + playbackButtonWindow.Width <= workArea.Right)
-        {
-            playbackButtonWindow.Left = right;
-            playbackButtonWindow.Top = preferredTop;
-            return;
-        }
-
-        var left = trackerBounds.Left - playbackButtonWindow.Width - PlaybackButtonGap;
-        if (left >= workArea.Left)
-        {
-            playbackButtonWindow.Left = left;
-            playbackButtonWindow.Top = preferredTop;
-            return;
-        }
-
-        playbackButtonWindow.Left = Math.Clamp(
-            trackerBounds.Left + trackerWidth - playbackButtonWindow.Width,
-            workArea.Left,
-            Math.Max(workArea.Left, workArea.Right - playbackButtonWindow.Width));
-        var above = trackerBounds.Top - playbackButtonWindow.Height - PlaybackButtonGap;
-        if (above >= workArea.Top)
-        {
-            playbackButtonWindow.Top = above;
-            return;
-        }
-
-        var below = trackerBounds.Top + trackerHeight + PlaybackButtonGap;
-        playbackButtonWindow.Top =
-            below + playbackButtonWindow.Height <= workArea.Bottom
-                ? below
-                : preferredTop;
+        var layout = CompanionWindowLayout.ResolvePlaybackButton(
+            ToLayoutRect(trackerBounds),
+            ToLayoutRect(workArea),
+            playbackButtonWindow.Width,
+            playbackButtonWindow.Height,
+            PlaybackButtonSurfaceInset,
+            PlaybackButtonGap);
+        playbackButtonWindow.Left = layout.Left;
+        playbackButtonWindow.Top = layout.Top;
     }
 
     private TimeSpan? GetMaximumStatsDuration()
@@ -877,6 +850,13 @@ public partial class MainWindow : Window
             (windowRect.Right - windowRect.Left) / dpiScale,
             (windowRect.Bottom - windowRect.Top) / dpiScale);
     }
+
+    private static LayoutRect ToLayoutRect(Rect rectangle) =>
+        new(
+            rectangle.Left,
+            rectangle.Top,
+            rectangle.Width,
+            rectangle.Height);
 
     private Rect GetCurrentMonitorWorkArea()
     {
