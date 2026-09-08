@@ -321,6 +321,17 @@ positioning.
 - [x] Both browser-extension test suites pass.
 - [x] Version-bearing source and public documentation consistently use 2.9.0.
 
+## macOS Release Validation
+
+- **Workflow run**: `34190202156`
+- **Commit**: `0a7f93f2897045f59b1d6eea8f41c17ca4a197e2`
+- **arm64 job**: `101946533245` on `macos-15` — success
+- **x64 job**: `101946533353` on `macos-15-intel` — success
+- **arm64 artifact**: `10041927539`,
+  `sha256:41f2994eab340482209adc4e55f2885d4f4d483d08f74478e47fdb40851d1a20`
+- **x64 artifact**: `10041931901`,
+  `sha256:c0fb4b67a31b0b353fb276a2a48d458a119be404b5da7d1fa22fb8635575df62`
+
 ---
 
 ## Final Verdict (Round 6, second fix-verification pass — 2026-09-08)
