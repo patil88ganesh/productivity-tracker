@@ -3,15 +3,15 @@
 Productivity Tracker is a compact, semi-transparent, always-on-top stopwatch
 and countdown timer for Windows and macOS.
 
-## Downloads — version 2.9.1
+## Downloads — version 2.9.2
 
-- **Windows 10/11 x64:** [ProductivityTracker-Setup.exe](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.9.1/ProductivityTracker-Setup.exe)
-- **macOS 12+ Apple silicon:** [ProductivityTracker-macOS-arm64.app.zip](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.9.1/ProductivityTracker-macOS-arm64.app.zip)
-- **macOS 12+ Intel:** [ProductivityTracker-macOS-x64.app.zip](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.9.1/ProductivityTracker-macOS-x64.app.zip)
+- **Windows 10/11 x64:** [ProductivityTracker-Setup.exe](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.9.2/ProductivityTracker-Setup.exe)
+- **macOS 12+ Apple silicon:** [ProductivityTracker-macOS-arm64.app.zip](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.9.2/ProductivityTracker-macOS-arm64.app.zip)
+- **macOS 12+ Intel:** [ProductivityTracker-macOS-x64.app.zip](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.9.2/ProductivityTracker-macOS-x64.app.zip)
 
 Release downloads will be published under:
 
-`https://github.com/patil88ganesh/productivity-tracker/releases/tag/v2.9.1`
+`https://github.com/patil88ganesh/productivity-tracker/releases/tag/v2.9.2`
 
 The macOS build is a beta with an ad-hoc signature and is not notarized. After
 extracting the zip, move `ProductivityTracker.app` to Applications and try to
@@ -23,10 +23,10 @@ confirm **Open**. Do not bypass Gatekeeper globally.
 ## Features and controls
 
 - Middle-click the timer to pause or resume.
-- Left-click the smaller square Play/Pause button above the clock's top-right.
-- The button follows the clock when moved, resized, minimized, or made
-  transparent. It is disabled whenever a lock or Focus Protection pause reason
-  is active, even if tracking was already paused manually.
+- Left-click the compact square Play/Pause button inside the clock's right edge.
+- The inline button uses the clock's existing space, follows its transparency,
+  and is disabled whenever a lock or Focus Protection pause reason is active,
+  even if tracking was already paused manually.
 - At `00:00:00`, the action is Start; after elapsed time is paused, it is Resume.
 - Left-drag the timer to reposition it.
 - Drag any edge or corner to resize it; the digits scale automatically.

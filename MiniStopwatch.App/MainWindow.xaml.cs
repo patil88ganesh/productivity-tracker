@@ -1,5 +1,6 @@
 ﻿using System.Media;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows;
@@ -43,8 +44,6 @@ public partial class MainWindow : Window
     private const double DefaultWidth = 184;
     private const double DefaultHeight = 58;
     private const double StatsWindowGap = 4;
-    private const double PlaybackButtonGap = 2;
-    private const double PlaybackButtonSurfaceInset = 4;
 
     private readonly TrackingController tracker = new(new SystemMonotonicClock());
     private readonly DailyStatsStore dailyStatsStore;
@@ -52,7 +51,6 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer completionFlashTimer;
     private readonly MenuItem[] opacityMenuItems;
     private readonly SocialMediaPauseBridge socialMediaPauseBridge;
-    private readonly PlaybackButtonWindow playbackButtonWindow;
     private readonly SolidColorBrush normalBorderBrush =
         new(Color.FromArgb(0x7F, 0x9A, 0xA0, 0xA5));
     private readonly SolidColorBrush hoverBorderBrush =
@@ -80,12 +78,6 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        playbackButtonWindow = new PlaybackButtonWindow(() =>
-        {
-            HideStatsWindow();
-            ToggleTracking();
-        });
-        Loaded += (_, _) => ShowPlaybackButton();
         dailyStatsStore = DailyStatsStore.Load(ReportStatsPersistenceError);
 
         opacityMenuItems =
@@ -202,6 +194,12 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (e.ChangedButton == MouseButton.Left &&
+            InlinePlaybackButton.IsMouseOver)
+        {
+            return;
+        }
+
         if (e.ChangedButton == MouseButton.Left)
         {
             DragMove();
@@ -295,7 +293,6 @@ public partial class MainWindow : Window
         };
         statsWindow.Opacity = Opacity;
         statsWindow.UpdateRows(dailyStatsStore.GetLastSevenDays());
-        PositionPlaybackButton();
         PositionStatsWindow(includeHidden: true);
         statsWindow.Show();
     }
@@ -328,26 +325,22 @@ public partial class MainWindow : Window
         if (WindowState == WindowState.Minimized)
         {
             HideStatsWindow();
-            playbackButtonWindow.Hide();
             return;
         }
 
         HideStatsWindow();
         ShowInTaskbar = false;
         Topmost = true;
-        ShowPlaybackButton();
     }
 
     private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         ScaleDisplay();
-        PositionPlaybackButton();
         PositionStatsWindow();
     }
 
     private void Window_LocationChanged(object? sender, EventArgs e)
     {
-        PositionPlaybackButton();
         PositionStatsWindow();
     }
 
@@ -384,7 +377,13 @@ public partial class MainWindow : Window
         }
 
         var displayTime = tracker.DisplayTime;
-        TimeDisplay.Text = ElapsedTimeFormatter.Format(displayTime);
+        var displayText = ElapsedTimeFormatter.Format(displayTime);
+        var displayLengthChanged = TimeDisplay.Text.Length != displayText.Length;
+        TimeDisplay.Text = displayText;
+        if (displayLengthChanged)
+        {
+            ScaleDisplay();
+        }
         ExitTimerMenuItem.Visibility = tracker.IsTimerMode
             ? Visibility.Visible
             : Visibility.Collapsed;
@@ -423,11 +422,27 @@ public partial class MainWindow : Window
                 : tracker.IsRunning
                     ? "Running"
                     : "Paused";
-        playbackButtonWindow.UpdateState(
-            tracker.IsRunning,
-            tracker.IsPlaybackControlBlocked,
-            tracker.IsTimerCompleted,
-            displayTime < TimeSpan.FromSeconds(1));
+        InlinePlaybackButton.IsEnabled = !tracker.IsPlaybackControlBlocked;
+        InlinePlaybackButton.Foreground = tracker.IsPlaybackControlBlocked
+            ? pausedBrush
+            : tracker.IsRunning
+                ? automaticPauseBrush
+                : runningBrush;
+        InlinePlaybackButton.ToolTip = tracker.IsPlaybackControlBlocked
+            ? "Unavailable during automatic pause"
+            : tracker.IsRunning
+                ? "Pause"
+                : tracker.IsTimerCompleted
+                    ? "Restart timer"
+                    : displayTime < TimeSpan.FromSeconds(1)
+                        ? "Start"
+                        : "Resume";
+        InlinePlayIcon.Visibility = tracker.IsRunning
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+        InlinePauseIcon.Visibility = tracker.IsRunning
+            ? Visibility.Visible
+            : Visibility.Collapsed;
 
         if (statsWindow?.IsVisible == true)
         {
@@ -528,7 +543,6 @@ public partial class MainWindow : Window
         }
 
         Opacity = opacityPercent / 100d;
-        playbackButtonWindow.Opacity = Opacity;
         if (statsWindow != null)
         {
             statsWindow.Opacity = Opacity;
@@ -597,59 +611,11 @@ public partial class MainWindow : Window
             ToLayoutRect(workArea),
             statsWindow.Width,
             statsWindow.Height,
-            StatsWindowGap,
-            new LayoutRect(
-                playbackButtonWindow.Left,
-                playbackButtonWindow.Top,
-                playbackButtonWindow.Width,
-                playbackButtonWindow.Height),
-            playbackButtonWindow.IsVisible);
+            StatsWindowGap);
 
         statsWindow.Left = layout.Left;
         statsWindow.Top = layout.Top;
         statsWindow.Topmost = true;
-    }
-
-    private void ShowPlaybackButton()
-    {
-        if (isClosing || WindowState == WindowState.Minimized)
-        {
-            return;
-        }
-
-        if (playbackButtonWindow.Owner == null)
-        {
-            playbackButtonWindow.Owner = this;
-        }
-
-        PositionPlaybackButton();
-        if (!playbackButtonWindow.IsVisible)
-        {
-            playbackButtonWindow.Show();
-        }
-
-        playbackButtonWindow.Topmost = true;
-        playbackButtonWindow.Opacity = Opacity;
-    }
-
-    private void PositionPlaybackButton()
-    {
-        if (WindowState == WindowState.Minimized)
-        {
-            return;
-        }
-
-        var trackerBounds = GetCurrentWindowBounds();
-        var workArea = GetCurrentMonitorWorkArea();
-        var layout = CompanionWindowLayout.ResolvePlaybackButton(
-            ToLayoutRect(trackerBounds),
-            ToLayoutRect(workArea),
-            playbackButtonWindow.Width,
-            playbackButtonWindow.Height,
-            PlaybackButtonSurfaceInset,
-            PlaybackButtonGap);
-        playbackButtonWindow.Left = layout.Left;
-        playbackButtonWindow.Top = layout.Top;
     }
 
     private TimeSpan? GetMaximumStatsDuration()
@@ -797,13 +763,60 @@ public partial class MainWindow : Window
     {
         var width = ActualWidth > 0 ? ActualWidth : Width;
         var height = ActualHeight > 0 ? ActualHeight : Height;
-        var fontSize = Math.Clamp(Math.Min(height * 0.48, width * 0.16), 20, 96);
+        var displayWidth = Math.Max(0, width - 18);
+        var fontSize = Math.Clamp(
+            Math.Min(height * 0.48, displayWidth * 0.16),
+            20,
+            96);
+        var availableTextWidth = TimerGrid.ColumnDefinitions[1].ActualWidth;
+        if (availableTextWidth <= 0)
+        {
+            availableTextWidth = Math.Max(1, width - 48);
+        }
+        if (availableTextWidth > 0)
+        {
+            var typeface = new Typeface(
+                TimeDisplay.FontFamily,
+                TimeDisplay.FontStyle,
+                TimeDisplay.FontWeight,
+                TimeDisplay.FontStretch);
+            var pixelsPerDip = VisualTreeHelper.GetDpi(this).PixelsPerDip;
+            for (var attempt = 0; attempt < 3; attempt++)
+            {
+                var formattedText = new FormattedText(
+                    TimeDisplay.Text,
+                    CultureInfo.CurrentCulture,
+                    FlowDirection.LeftToRight,
+                    typeface,
+                    fontSize,
+                    Brushes.Black,
+                    null,
+                    TextFormattingMode.Display,
+                    pixelsPerDip);
+                if (formattedText.WidthIncludingTrailingWhitespace <= availableTextWidth)
+                {
+                    break;
+                }
+
+                fontSize = Math.Max(
+                    12,
+                    fontSize * availableTextWidth /
+                    formattedText.WidthIncludingTrailingWhitespace * 0.98);
+            }
+        }
         var indicatorSize = Math.Clamp(fontSize * 0.28, 8, 22);
 
         TimeDisplay.FontSize = fontSize;
         StatusIndicator.Width = indicatorSize;
         StatusIndicator.Height = indicatorSize;
         TrackerBorder.CornerRadius = new CornerRadius(Math.Clamp(height * 0.15, 7, 20));
+    }
+
+    private void InlinePlaybackButton_Click(object sender, RoutedEventArgs e)
+    {
+        HideStatsWindow();
+        ToggleTracking();
+        e.Handled = true;
     }
 
     private static ResizeRegion GetResizeHitTest(IntPtr windowHandle, IntPtr lParam)

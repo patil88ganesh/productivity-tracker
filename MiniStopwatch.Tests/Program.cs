@@ -15,13 +15,7 @@ var tests = new (string Name, Action Run)[]
     ("Exit timer returns to stopwatch mode", ExitTimerReturnsToStopwatchMode),
     ("Resize hit test detects edges and corners", ResizeHitTestDetectsEdgesAndCorners),
     ("Resize hit test keeps center draggable", ResizeHitTestKeepsCenterDraggable),
-    ("Playback button prefers above the clock", PlaybackButtonPrefersAboveClock),
-    ("Playback button falls below at top edge", PlaybackButtonFallsBelowAtTopEdge),
-    ("Playback button falls to the right", PlaybackButtonFallsRight),
-    ("Playback button falls to the left", PlaybackButtonFallsLeft),
-    ("Playback button has bounded final fallback", PlaybackButtonHasBoundedFallback),
-    ("Stats avoid playback on constrained screens", StatsAvoidPlaybackOnConstrainedScreens),
-    ("Companion windows stay bounded across layout grid", CompanionWindowsStayBoundedAcrossGrid),
+    ("Stats window stays bounded across layout grid", StatsWindowStaysBoundedAcrossGrid),
     ("Added time continues from current stopwatch", AddedTimeContinuesFromCurrentStopwatch),
     ("Added time preserves a running stopwatch", AddedTimePreservesRunningStopwatch),
     ("Add and start exits countdown mode", AddAndStartExitsCountdownMode),
@@ -320,124 +314,7 @@ static void PlaybackControlBlockedByActivePauseReason()
     False(tracker.IsPlaybackControlBlocked);
 }
 
-static void PlaybackButtonPrefersAboveClock()
-{
-    var tracker = new LayoutRect(300, 200, 184, 58);
-    var workArea = new LayoutRect(0, 0, 1920, 1040);
-
-    var button = CompanionWindowLayout.ResolvePlaybackButton(
-        tracker,
-        workArea,
-        buttonWidth: 26,
-        buttonHeight: 26,
-        surfaceInset: 4,
-        gap: 2);
-
-    Equal(462d, button.Left);
-    Equal(176d, button.Top);
-    Equal(tracker.Right, button.Right - 4);
-    Equal(tracker.Top - 2, button.Bottom - 4);
-}
-
-static void PlaybackButtonFallsBelowAtTopEdge()
-{
-    var tracker = new LayoutRect(300, 0, 184, 58);
-    var workArea = new LayoutRect(0, 0, 1920, 1040);
-
-    var button = CompanionWindowLayout.ResolvePlaybackButton(
-        tracker,
-        workArea,
-        buttonWidth: 26,
-        buttonHeight: 26,
-        surfaceInset: 4,
-        gap: 2);
-
-    Equal(56d, button.Top);
-    Equal(tracker.Bottom + 2, button.Top + 4);
-}
-
-static void PlaybackButtonFallsRight()
-{
-    var tracker = new LayoutRect(50, 0, 100, 100);
-    var workArea = new LayoutRect(0, 0, 300, 100);
-
-    var button = CompanionWindowLayout.ResolvePlaybackButton(
-        tracker,
-        workArea,
-        buttonWidth: 26,
-        buttonHeight: 26,
-        surfaceInset: 4,
-        gap: 2);
-
-    Equal(148d, button.Left);
-    Equal(0d, button.Top);
-}
-
-static void PlaybackButtonFallsLeft()
-{
-    var tracker = new LayoutRect(200, 0, 100, 100);
-    var workArea = new LayoutRect(0, 0, 300, 100);
-
-    var button = CompanionWindowLayout.ResolvePlaybackButton(
-        tracker,
-        workArea,
-        buttonWidth: 26,
-        buttonHeight: 26,
-        surfaceInset: 4,
-        gap: 2);
-
-    Equal(176d, button.Left);
-    Equal(0d, button.Top);
-}
-
-static void PlaybackButtonHasBoundedFallback()
-{
-    var tracker = new LayoutRect(0, 0, 300, 100);
-    var workArea = new LayoutRect(0, 0, 300, 100);
-
-    var button = CompanionWindowLayout.ResolvePlaybackButton(
-        tracker,
-        workArea,
-        buttonWidth: 26,
-        buttonHeight: 26,
-        surfaceInset: 4,
-        gap: 2);
-
-    Equal(274d, button.Left);
-    Equal(0d, button.Top);
-    True(button.Right <= workArea.Right);
-    True(button.Bottom <= workArea.Bottom);
-}
-
-static void StatsAvoidPlaybackOnConstrainedScreens()
-{
-    var tracker = new LayoutRect(0, 140, 320, 180);
-    var workArea = new LayoutRect(0, 0, 640, 360);
-    var playback = CompanionWindowLayout.ResolvePlaybackButton(
-        tracker,
-        workArea,
-        buttonWidth: 26,
-        buttonHeight: 26,
-        surfaceInset: 4,
-        gap: 2);
-
-    var stats = CompanionWindowLayout.ResolveStatsWindow(
-        tracker,
-        workArea,
-        statsWidth: 320,
-        statsHeight: 196,
-        gap: 4,
-        playback,
-        playbackVisible: true);
-
-    False(stats.Intersects(playback));
-    True(stats.Left >= workArea.Left);
-    True(stats.Right <= workArea.Right);
-    True(stats.Top >= workArea.Top);
-    True(stats.Bottom <= workArea.Bottom);
-}
-
-static void CompanionWindowsStayBoundedAcrossGrid()
+static void StatsWindowStaysBoundedAcrossGrid()
 {
     var workArea = new LayoutRect(0, 0, 800, 480);
     foreach (var width in new[] { 140d, 320d, 600d })
@@ -449,32 +326,18 @@ static void CompanionWindowsStayBoundedAcrossGrid()
                 foreach (var top in new[] { 0d, (480 - height) / 2, 480 - height })
                 {
                     var tracker = new LayoutRect(left, top, width, height);
-                    var playback = CompanionWindowLayout.ResolvePlaybackButton(
-                        tracker,
-                        workArea,
-                        buttonWidth: 26,
-                        buttonHeight: 26,
-                        surfaceInset: 4,
-                        gap: 2);
                     var statsWidth = Math.Max(236, Math.Min(width, 420));
                     var stats = CompanionWindowLayout.ResolveStatsWindow(
                         tracker,
                         workArea,
                         statsWidth,
                         statsHeight: 196,
-                        gap: 4,
-                        playback,
-                        playbackVisible: true);
+                        gap: 4);
 
-                    True(playback.Left >= workArea.Left);
-                    True(playback.Top >= workArea.Top);
-                    True(playback.Right <= workArea.Right);
-                    True(playback.Bottom <= workArea.Bottom);
                     True(stats.Left >= workArea.Left);
                     True(stats.Top >= workArea.Top);
                     True(stats.Right <= workArea.Right);
                     True(stats.Bottom <= workArea.Bottom);
-                    False(stats.Intersects(playback));
                 }
             }
         }

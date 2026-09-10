@@ -155,14 +155,27 @@ final class TimerDisplayView: NSView {
         let textRect = NSRect(
             x: indicatorRect.maxX + 5,
             y: (bounds.height - fontSize * 1.25) / 2,
-            width: max(1, bounds.width - indicatorRect.maxX - 13),
+            width: max(
+                1,
+                bounds.width
+                    - indicatorRect.maxX
+                    - 13
+                    - PlaybackButtonLayout.reservedWidth
+            ),
             height: fontSize * 1.3
         )
         displayText.draw(in: textRect, withAttributes: attributes)
     }
 
     private var fontSize: CGFloat {
-        min(max(min(bounds.height * 0.48, bounds.width * 0.16), 20), 96)
+        let availableWidth = max(
+            0,
+            bounds.width - PlaybackButtonLayout.reservedWidth
+        )
+        return min(
+            max(min(bounds.height * 0.48, availableWidth * 0.16), 20),
+            96
+        )
     }
 
     private var cornerRadius: CGFloat {
@@ -177,22 +190,11 @@ final class TimerDisplayView: NSView {
     }
 }
 
-private final class PlaybackButtonPanel: NSPanel {
-    override var canBecomeKey: Bool { false }
-    override var canBecomeMain: Bool { false }
-}
-
 private enum PlaybackButtonLayout {
-    static let panelSize: CGFloat = 26
-    static let surfaceInset: CGFloat = 4
-    static let gap: CGFloat = 2
-    static var trailingExtent: CGFloat {
-        panelSize - surfaceInset
-    }
-}
-
-private enum StatsWidgetLayout {
-    static let gap: CGFloat = 4
+    static let surfaceInset: CGFloat = 0
+    static let controlSize: CGFloat = 14
+    static let trailingInset: CGFloat = 9
+    static let reservedWidth: CGFloat = 18
 }
 
 private final class PlaybackButtonView: NSView {
@@ -320,25 +322,25 @@ private final class PlaybackButtonView: NSView {
 
         let square = interactiveBounds
         let path = NSBezierPath(
-            roundedRect: square,
-            xRadius: 3,
-            yRadius: 3
+            roundedRect: square.insetBy(dx: 0.625, dy: 0.625),
+            xRadius: 2.5,
+            yRadius: 2.5
         )
         let surfaceAlpha = (isHovering ? 1 : 0.9) *
             (controlEnabled ? (isPressed ? 0.72 : 1) : 0.58)
         NSColor.white.withAlphaComponent(surfaceAlpha).setFill()
         path.fill()
         accentColor.withAlphaComponent(controlEnabled ? 1 : 0.58).setStroke()
-        path.lineWidth = 1.5
+        path.lineWidth = 1.25
         path.stroke()
 
         accentColor.withAlphaComponent(controlEnabled ? 1 : 0.58).setFill()
         if showsPause {
-            let barHeight: CGFloat = 12
-            let barWidth: CGFloat = 3
+            let barHeight: CGFloat = 9
+            let barWidth: CGFloat = 2.25
             NSBezierPath(
                 roundedRect: NSRect(
-                    x: square.midX - 5,
+                    x: square.midX - 3.75,
                     y: square.midY - barHeight / 2,
                     width: barWidth,
                     height: barHeight
@@ -348,7 +350,7 @@ private final class PlaybackButtonView: NSView {
             ).fill()
             NSBezierPath(
                 roundedRect: NSRect(
-                    x: square.midX + 2,
+                    x: square.midX + 1.5,
                     y: square.midY - barHeight / 2,
                     width: barWidth,
                     height: barHeight
@@ -359,52 +361,17 @@ private final class PlaybackButtonView: NSView {
         } else {
             let playPath = NSBezierPath()
             playPath.move(
-                to: NSPoint(x: square.midX - 3.5, y: square.midY - 5)
+                to: NSPoint(x: square.midX - 2.625, y: square.midY - 3.75)
             )
             playPath.line(
-                to: NSPoint(x: square.midX + 3.5, y: square.midY)
+                to: NSPoint(x: square.midX + 2.625, y: square.midY)
             )
             playPath.line(
-                to: NSPoint(x: square.midX - 3.5, y: square.midY + 5)
+                to: NSPoint(x: square.midX - 2.625, y: square.midY + 3.75)
             )
             playPath.close()
             playPath.fill()
         }
-    }
-}
-
-private final class PlaybackButtonController: NSWindowController {
-    let buttonView: PlaybackButtonView
-
-    init() {
-        buttonView = PlaybackButtonView(
-            frame: NSRect(
-                x: 0,
-                y: 0,
-                width: PlaybackButtonLayout.panelSize,
-                height: PlaybackButtonLayout.panelSize
-            )
-        )
-        let panel = PlaybackButtonPanel(
-            contentRect: buttonView.frame,
-            styleMask: [.borderless, .nonactivatingPanel],
-            backing: .buffered,
-            defer: false
-        )
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
-        panel.hasShadow = true
-        panel.level = .floating
-        panel.hidesOnDeactivate = false
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        panel.becomesKeyOnlyIfNeeded = true
-        panel.isMovable = false
-        panel.contentView = buttonView
-        super.init(window: panel)
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
     }
 }
 
@@ -420,7 +387,14 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
     private let displayView: TimerDisplayView
     private let statsRecorder: DailyStatsRecorder
     private let statsWidgetController = StatsWidgetController()
-    private let playbackButtonController = PlaybackButtonController()
+    private let playbackButtonView = PlaybackButtonView(
+        frame: NSRect(
+            x: 0,
+            y: 0,
+            width: PlaybackButtonLayout.controlSize,
+            height: PlaybackButtonLayout.controlSize
+        )
+    )
     private let defaults = UserDefaults.standard
     private var refreshTimer: Foundation.Timer?
     private var flashTimer: Foundation.Timer?
@@ -483,15 +457,12 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
         displayView.onMiddleClick = { [weak self] in
             self?.toggleTracking()
         }
-        playbackButtonController.buttonView.onToggle = { [weak self] in
+        displayView.addSubview(playbackButtonView)
+        playbackButtonView.onToggle = { [weak self] in
             self?.dismissStatsWidget()
             self?.toggleTracking()
         }
-        if let playbackWindow = playbackButtonController.window {
-            positionPlaybackButton()
-            window.addChildWindow(playbackWindow, ordered: .above)
-            playbackWindow.orderFront(nil)
-        }
+        positionPlaybackButton()
 
         focusSocketServer = FocusSocketServer { [weak self] active in
             guard let self else {
@@ -536,7 +507,6 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
         focusSocketServer?.stop()
         statsWidgetController.hide()
         statsWidgetController.close()
-        playbackButtonController.close()
     }
 
     func showWindowAndActivate() {
@@ -545,7 +515,6 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
         }
         showWindow(nil)
         window?.makeKeyAndOrderFront(nil)
-        showPlaybackButton()
         NSApp.activate(ignoringOtherApps: true)
     }
 
@@ -570,12 +539,10 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
         recordStats(forceSave: true)
         statsWidgetController.hide()
         statsWidgetController.close()
-        playbackButtonController.close()
     }
 
     func windowDidMove(_ notification: Notification) {
         saveState()
-        positionPlaybackButton()
         positionStatsWidget()
     }
 
@@ -588,13 +555,11 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
 
     func windowWillMiniaturize(_ notification: Notification) {
         dismissStatsWidget()
-        playbackButtonController.window?.orderOut(nil)
     }
 
     func windowDidDeminiaturize(_ notification: Notification) {
         window?.level = .floating
         statsWidgetController.window?.level = .floating
-        showPlaybackButton()
     }
 
     @objc private func toggleTracking() {
@@ -834,7 +799,7 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
             )
             displayView.toolTip = "Paused"
         }
-        playbackButtonController.buttonView.updateState(
+        playbackButtonView.updateState(
             isRunning: engine.isRunning,
             isBlockedByAutomaticPause: engine.isPlaybackControlBlocked,
             isTimerCompleted: engine.isTimerCompleted,
@@ -967,7 +932,6 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
         let alpha = CGFloat(opacity) / 100
         window?.alphaValue = alpha
         statsWidgetController.window?.alphaValue = alpha
-        playbackButtonController.window?.alphaValue = alpha
         for item in opacityMenuItems {
             item.state = (item.representedObject as? Int) == opacity ? .on : .off
         }
@@ -1009,7 +973,6 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
         }
         statsWindow.level = parentWindow.level
         statsWindow.alphaValue = parentWindow.alphaValue
-        positionPlaybackButton()
         positionStatsWidget()
         statsWidgetController.show { [weak self] in
             self?.dismissStatsWidget()
@@ -1031,32 +994,12 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
         let visibleFrame = window?.screen?.visibleFrame
             ?? NSScreen.main?.visibleFrame
         let desiredX = parentFrame.midX - width / 2
-        var x = visibleFrame.map {
+        let x = visibleFrame.map {
             min(max(desiredX, $0.minX), $0.maxX - width)
         } ?? desiredX
-        var belowY = parentFrame.minY - StatsWidgetController.height + 3
-        var aboveY = parentFrame.maxY - 3
-        let visiblePlaybackFrame = playbackButtonController.window.flatMap {
-            $0.isVisible ? $0.frame : nil
-        }
-        if let playbackFrame = visiblePlaybackFrame,
-           x < playbackFrame.maxX,
-           x + width > playbackFrame.minX {
-            if playbackFrame.midY < parentFrame.midY {
-                belowY = min(
-                    belowY,
-                    playbackFrame.minY
-                        - StatsWidgetController.height
-                        - StatsWidgetLayout.gap
-                )
-            } else {
-                aboveY = max(
-                    aboveY,
-                    playbackFrame.maxY + StatsWidgetLayout.gap
-                )
-            }
-        }
-        var y = visibleFrame.map {
+        let belowY = parentFrame.minY - StatsWidgetController.height + 3
+        let aboveY = parentFrame.maxY - 3
+        let y = visibleFrame.map {
             belowY >= $0.minY
                 ? belowY
                 : min(
@@ -1064,39 +1007,6 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
                     $0.maxY - StatsWidgetController.height
                 )
         } ?? belowY
-        if let visibleFrame,
-           let playbackFrame = visiblePlaybackFrame {
-            let statsFrame = NSRect(
-                x: x,
-                y: y,
-                width: width,
-                height: StatsWidgetController.height
-            )
-            if statsFrame.intersects(playbackFrame) {
-                let leftOfPlayback = playbackFrame.minX
-                    - width
-                    - StatsWidgetLayout.gap
-                let rightOfPlayback = playbackFrame.maxX
-                    + StatsWidgetLayout.gap
-                if leftOfPlayback >= visibleFrame.minX {
-                    x = leftOfPlayback
-                } else if rightOfPlayback + width <= visibleFrame.maxX {
-                    x = rightOfPlayback
-                } else {
-                    let belowPlayback = playbackFrame.minY
-                        - StatsWidgetController.height
-                        - StatsWidgetLayout.gap
-                    let abovePlayback = playbackFrame.maxY
-                        + StatsWidgetLayout.gap
-                    if belowPlayback >= visibleFrame.minY {
-                        y = belowPlayback
-                    } else if abovePlayback + StatsWidgetController.height
-                        <= visibleFrame.maxY {
-                        y = abovePlayback
-                    }
-                }
-            }
-        }
         let frame = NSRect(
             x: x,
             y: y,
@@ -1106,79 +1016,19 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
         statsWindow.setFrame(frame, display: true)
     }
 
-    private func showPlaybackButton() {
-        guard window?.isMiniaturized != true,
-              let parentWindow = window,
-              let playbackWindow = playbackButtonController.window else {
-            return
-        }
-        if playbackWindow.parent !== parentWindow {
-            parentWindow.addChildWindow(playbackWindow, ordered: .above)
-        }
-        playbackWindow.level = parentWindow.level
-        playbackWindow.alphaValue = parentWindow.alphaValue
-        positionPlaybackButton()
-        playbackWindow.orderFront(nil)
-    }
-
     private func positionPlaybackButton() {
-        guard window?.isMiniaturized != true,
-              let parentWindow = window,
-              let playbackWindow = playbackButtonController.window else {
-            return
-        }
-
-        let parentFrame = parentWindow.frame
-        let visibleFrame = parentWindow.screen?.visibleFrame
-            ?? NSScreen.main?.visibleFrame
-            ?? parentFrame
-        let alignedX = min(
-            max(
-                parentFrame.maxX - PlaybackButtonLayout.trailingExtent,
-                visibleFrame.minX
+        let size = PlaybackButtonLayout.controlSize
+        playbackButtonView.frame = NSRect(
+            x: max(
+                0,
+                displayView.bounds.width
+                    - PlaybackButtonLayout.trailingInset
+                    - size
             ),
-            visibleFrame.maxX - playbackWindow.frame.width
+            y: max(0, (displayView.bounds.height - size) / 2),
+            width: size,
+            height: size
         )
-        let above = parentFrame.maxY
-            + PlaybackButtonLayout.gap
-            - PlaybackButtonLayout.surfaceInset
-        if above + playbackWindow.frame.height <= visibleFrame.maxY {
-            playbackWindow.setFrameOrigin(NSPoint(x: alignedX, y: above))
-            return
-        }
-
-        let below = parentFrame.minY
-            - PlaybackButtonLayout.gap
-            - PlaybackButtonLayout.trailingExtent
-        if below >= visibleFrame.minY {
-            playbackWindow.setFrameOrigin(NSPoint(x: alignedX, y: below))
-            return
-        }
-
-        let sideY = min(
-            max(
-                parentFrame.maxY - PlaybackButtonLayout.trailingExtent,
-                visibleFrame.minY
-            ),
-            visibleFrame.maxY - playbackWindow.frame.height
-        )
-        var x = parentFrame.maxX
-            + PlaybackButtonLayout.gap
-            - PlaybackButtonLayout.surfaceInset
-        if x + playbackWindow.frame.width <= visibleFrame.maxX {
-            playbackWindow.setFrameOrigin(NSPoint(x: x, y: sideY))
-            return
-        }
-
-        x = parentFrame.minX
-            - PlaybackButtonLayout.gap
-            - PlaybackButtonLayout.trailingExtent
-        if x >= visibleFrame.minX {
-            playbackWindow.setFrameOrigin(NSPoint(x: x, y: sideY))
-            return
-        }
-
-        playbackWindow.setFrameOrigin(NSPoint(x: alignedX, y: sideY))
     }
 
     private var maximumStatsDuration: TimeInterval? {

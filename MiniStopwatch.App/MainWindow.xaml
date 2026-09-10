@@ -89,10 +89,11 @@
                               Opacity="0.24"
                               Color="#404850"/>
         </Border.Effect>
-        <Grid>
+        <Grid x:Name="TimerGrid">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="10"/>
                 <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="18"/>
             </Grid.ColumnDefinitions>
             <Ellipse x:Name="StatusIndicator"
                      Width="8"
@@ -121,6 +122,86 @@
                        HorizontalAlignment="Center"
                        VerticalAlignment="Center"
                        TextOptions.TextFormattingMode="Display"/>
+            <Button x:Name="InlinePlaybackButton"
+                    Grid.Column="2"
+                    Width="14"
+                    Height="14"
+                    Padding="0"
+                    BorderThickness="0"
+                    Background="#E6FFFFFF"
+                    Focusable="False"
+                    ToolTipService.ShowOnDisabled="True"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Center"
+                    Click="InlinePlaybackButton_Click">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="PlaybackSurface"
+                                CornerRadius="2.5"
+                                BorderThickness="1.25"
+                                BorderBrush="{TemplateBinding Foreground}"
+                                Background="{TemplateBinding Background}"
+                                Cursor="Hand">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="3"
+                                                  Direction="270"
+                                                  ShadowDepth="1"
+                                                  Opacity="0.22"
+                                                  Color="#404850"/>
+                            </Border.Effect>
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="PlaybackSurface"
+                                        Property="Background"
+                                        Value="#FFFFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="PlaybackSurface"
+                                        Property="Opacity"
+                                        Value="0.72"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="PlaybackSurface"
+                                        Property="Opacity"
+                                        Value="0.58"/>
+                                <Setter TargetName="PlaybackSurface"
+                                        Property="Cursor"
+                                        Value="Arrow"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Button.Template>
+                <Grid IsHitTestVisible="False">
+                    <Polygon x:Name="InlinePlayIcon"
+                             Points="0,0 5.25,3.75 0,7.5"
+                             Fill="{Binding Foreground, ElementName=InlinePlaybackButton}"
+                             Stretch="None"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center"/>
+                    <Grid x:Name="InlinePauseIcon"
+                          Width="7.5"
+                          Height="9"
+                          Visibility="Collapsed"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Center">
+                        <Rectangle Width="2.25"
+                                   Height="9"
+                                   RadiusX="0.75"
+                                   RadiusY="0.75"
+                                   Fill="{Binding Foreground, ElementName=InlinePlaybackButton}"
+                                   HorizontalAlignment="Left"/>
+                        <Rectangle Width="2.25"
+                                   Height="9"
+                                   RadiusX="0.75"
+                                   RadiusY="0.75"
+                                   Fill="{Binding Foreground, ElementName=InlinePlaybackButton}"
+                                   HorizontalAlignment="Right"/>
+                    </Grid>
+                </Grid>
+            </Button>
         </Grid>
     </Border>
 </Window>

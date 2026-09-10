@@ -839,7 +839,7 @@ kbd {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 11px 19px;
+  padding: 11px 39px 11px 19px;
   color: #68747c;
   border: 1px solid #acb6bc;
   border-radius: 11px;
@@ -864,24 +864,25 @@ kbd {
 
 .context-playback-button {
   position: absolute;
-  top: -20px;
-  right: 0;
+  top: 50%;
+  right: 9px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 3px;
-  width: 18px;
-  height: 18px;
-  border: 1.5px solid #f28c00;
-  border-radius: 3px;
+  width: 14px;
+  height: 14px;
+  border: 1.25px solid #f28c00;
+  border-radius: 2.5px;
   background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.26);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.24);
+  transform: translateY(-50%);
 }
 
 .context-playback-button b {
   display: block;
-  width: 2.5px;
-  height: 9px;
+  width: 2px;
+  height: 7px;
   border-radius: 1px;
   background: #f28c00;
 }
