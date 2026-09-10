@@ -52,3 +52,14 @@ diff before publication.
 
 The corrected diff was re-reviewed. No additional high-confidence actionable
 finding remained, and the final polish round passed cleanly.
+
+## macOS release-build evidence
+
+- Workflow: `Build macOS`
+- Run: `34443581105`
+- Source commit: `f719bb765c5950df72bbb632470027eb7e832f29`
+- Conclusion: `success`
+- Apple silicon artifact: `10138815265`
+  - SHA-256: `e38b8fc429dc70a67f00eb58a4e41d908c68fc190871829a859ec28e034830d9`
+- Intel artifact: `10138827046`
+  - SHA-256: `974145c48a4c7e6441ec8fdd56b2f224ae34340d4eb79847320ea756281be7bc`
