@@ -23,18 +23,30 @@ function matchesDistractingHost(hostname) {
 }
 
 function isDistractingUrl(url) {
+  return classifyDistractingUrl(url) !== null;
+}
+
+function classifyDistractingUrl(url) {
   if (!url) {
-    return false;
+    return null;
   }
 
   try {
-    return matchesDistractingHost(new URL(url).hostname);
+    const hostname = new URL(url).hostname.toLowerCase();
+    if (!matchesDistractingHost(hostname)) {
+      return null;
+    }
+
+    return hostname === "youtube.com" || hostname.endsWith(".youtube.com")
+      ? "youtube"
+      : "other";
   } catch {
-    return false;
+    return null;
   }
 }
 
 globalThis.ProductivityTrackerSites = {
+  classifyDistractingUrl,
   isDistractingUrl,
   matchesDistractingHost,
 };

@@ -35,6 +35,10 @@
                           Header="Pause on selected websites"
                           IsCheckable="True"
                           Click="SocialMediaPauseMenuItem_Click"/>
+                <MenuItem x:Name="ContinueOnYouTubeMenuItem"
+                          Header="Continue on YouTube"
+                          IsCheckable="True"
+                          Click="ContinueOnYouTubeMenuItem_Click"/>
                 <Separator/>
                 <MenuItem Header="Browser Extension Setup..."
                           Click="BrowserExtensionSetupMenuItem_Click"/>
@@ -68,6 +72,9 @@
                           Click="OpacityMenuItem_Click"/>
             </MenuItem>
             <MenuItem Header="My stats (mini)" Click="StatsMenuItem_Click"/>
+            <MenuItem x:Name="DockToTaskbarMenuItem"
+                      Header="Dock to taskbar"
+                      Click="DockToTaskbarMenuItem_Click"/>
             <MenuItem Header="Minimize" Click="MinimizeMenuItem_Click"/>
             <MenuItem Header="Exit" Click="ExitMenuItem_Click"/>
         </ContextMenu>

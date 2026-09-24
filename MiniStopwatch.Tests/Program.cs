@@ -23,6 +23,12 @@ var tests = new (string Name, Action Run)[]
     ("Playback control is blocked by active pause reasons", PlaybackControlBlockedByActivePauseReason),
     ("Lock and distracting site require both to clear", AutomaticPauseReasonsMustBothClear),
     ("Manual stop during automatic pause prevents resume", ManualStopDuringAutomaticPausePreventsResume),
+    ("YouTube exemption ignores exact YouTube signals", YouTubeExemptionIgnoresExactYouTubeSignals),
+    ("YouTube exemption pauses legacy unknown signals", YouTubeExemptionPausesLegacyUnknownSignals),
+    ("YouTube exemption still pauses known distracting sites", YouTubeExemptionPausesKnownDistractingSites),
+    ("YouTube foreground fallback recognizes Edge and Chrome", YouTubeForegroundFallbackRecognizesSupportedBrowsers),
+    ("YouTube foreground fallback rejects other windows", YouTubeForegroundFallbackRejectsOtherWindows),
+    ("YouTube foreground fallback preserves explicit other sites", YouTubeForegroundFallbackPreservesExplicitOtherSites),
     ("Daily stats count only active tracking", DailyStatsCountOnlyActiveTracking),
     ("Daily stats split tracking at local midnight", DailyStatsSplitAtLocalMidnight),
     ("Daily stats report missing days as NA", DailyStatsReportMissingDaysAsNa),
@@ -296,6 +302,71 @@ static void DistractingSitePausesAndResumesTracking()
 
     True(tracker.IsRunning);
     Equal(TimeSpan.FromMinutes(10), tracker.DisplayTime);
+}
+
+static void YouTubeExemptionIgnoresExactYouTubeSignals()
+{
+    False(BrowserPausePolicy.ShouldPause(
+        pauseOnSelectedWebsites: true,
+        continueOnYouTube: true,
+        BrowserActivityKind.YouTube));
+}
+
+static void YouTubeExemptionPausesLegacyUnknownSignals()
+{
+    True(BrowserPausePolicy.ShouldPause(
+        pauseOnSelectedWebsites: true,
+        continueOnYouTube: true,
+        BrowserActivityKind.UnknownDistracting));
+}
+
+static void YouTubeExemptionPausesKnownDistractingSites()
+{
+    True(BrowserPausePolicy.ShouldPause(
+        pauseOnSelectedWebsites: true,
+        continueOnYouTube: true,
+        BrowserActivityKind.OtherDistracting));
+}
+
+static void YouTubeForegroundFallbackRecognizesSupportedBrowsers()
+{
+    True(BrowserPausePolicy.IsForegroundYouTubeWindow(
+        "msedge",
+        "Example video - YouTube and 3 more pages - Work - Microsoft Edge"));
+    True(BrowserPausePolicy.IsForegroundYouTubeWindow(
+        "chrome",
+        "Example video - YouTube - Google Chrome"));
+}
+
+static void YouTubeForegroundFallbackRejectsOtherWindows()
+{
+    False(BrowserPausePolicy.IsForegroundYouTubeWindow(
+        "msedge",
+        "LinkedIn - Microsoft Edge"));
+    False(BrowserPausePolicy.IsForegroundYouTubeWindow(
+        "notepad",
+        "Notes about - YouTube"));
+    False(BrowserPausePolicy.IsForegroundYouTubeWindow(null, null));
+    True(BrowserPausePolicy.ShouldPause(
+        pauseOnSelectedWebsites: true,
+        continueOnYouTube: false,
+        BrowserActivityKind.YouTube));
+}
+
+static void YouTubeForegroundFallbackPreservesExplicitOtherSites()
+{
+    Equal(
+        BrowserActivityKind.OtherDistracting,
+        BrowserPausePolicy.ResolveActivity(
+            BrowserActivityKind.OtherDistracting,
+            continueOnYouTube: true,
+            isForegroundYouTubeWindow: true));
+    Equal(
+        BrowserActivityKind.YouTube,
+        BrowserPausePolicy.ResolveActivity(
+            BrowserActivityKind.UnknownDistracting,
+            continueOnYouTube: true,
+            isForegroundYouTubeWindow: true));
 }
 
 static void PlaybackControlBlockedByActivePauseReason()

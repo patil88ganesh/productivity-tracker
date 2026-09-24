@@ -22,6 +22,13 @@ enum FocusProtectionError: LocalizedError {
     }
 }
 
+enum BrowserActivityKind {
+    case none
+    case youtube
+    case otherDistracting
+    case unknownDistracting
+}
+
 enum FocusProtectionPaths {
     static let hostName = "com.patil88ganesh.productivity_tracker"
     static let extensionID = "dhnpejafolnigilfhbbdiaanpfegpggd"
@@ -107,15 +114,15 @@ enum FocusProtectionInstaller {
 
 final class FocusSocketServer {
     private let queue = DispatchQueue(label: "ProductivityTracker.FocusSocket")
-    private let stateChanged: (Bool) -> Void
+    private let stateChanged: (BrowserActivityKind) -> Void
     private var listener: DispatchSourceRead?
     private var listenerFD: Int32 = -1
     private var clientSources: [Int32: DispatchSourceRead] = [:]
     private var clientBuffers: [Int32: [UInt8]] = [:]
-    private var clientStates: [Int32: Bool] = [:]
-    private var lastAggregateState = false
+    private var clientStates: [Int32: BrowserActivityKind] = [:]
+    private var lastAggregateState = BrowserActivityKind.none
 
-    init(stateChanged: @escaping (Bool) -> Void) {
+    init(stateChanged: @escaping (BrowserActivityKind) -> Void) {
         self.stateChanged = stateChanged
     }
 
@@ -207,7 +214,7 @@ final class FocusSocketServer {
 
             _ = Darwin.fcntl(clientFD, F_SETFL, O_NONBLOCK)
             clientBuffers[clientFD] = []
-            clientStates[clientFD] = false
+            clientStates[clientFD] = BrowserActivityKind.none
 
             let source = DispatchSource.makeReadSource(fileDescriptor: clientFD, queue: queue)
             source.setEventHandler { [weak self] in
@@ -237,7 +244,16 @@ final class FocusSocketServer {
         while let newline = buffer.firstIndex(of: 10) {
             let line = buffer[..<newline]
             buffer.removeFirst(newline + 1)
-            clientStates[fd] = line.first == 49
+            switch line.first {
+            case 121:
+                clientStates[fd] = .youtube
+            case 49:
+                clientStates[fd] = .otherDistracting
+            case 117:
+                clientStates[fd] = .unknownDistracting
+            default:
+                clientStates[fd] = BrowserActivityKind.none
+            }
         }
         clientBuffers[fd] = buffer
         publishAggregateState()
@@ -252,7 +268,16 @@ final class FocusSocketServer {
     }
 
     private func publishAggregateState() {
-        let aggregate = clientStates.values.contains(true)
+        let aggregate: BrowserActivityKind
+        if clientStates.values.contains(.otherDistracting) {
+            aggregate = .otherDistracting
+        } else if clientStates.values.contains(.unknownDistracting) {
+            aggregate = .unknownDistracting
+        } else if clientStates.values.contains(.youtube) {
+            aggregate = .youtube
+        } else {
+            aggregate = .none
+        }
         guard aggregate != lastAggregateState else {
             return
         }

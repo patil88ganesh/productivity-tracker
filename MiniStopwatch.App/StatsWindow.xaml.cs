@@ -13,6 +13,9 @@ public partial class StatsWindow : Window
     private const int DoNotActivate = 3;
     private const int ExtendedStyleIndex = -20;
     private const int NoActivateStyle = 0x08000000;
+    private const uint SwpNoSize = 0x0001;
+    private const uint SwpNoActivate = 0x0010;
+    private static readonly IntPtr HwndTopmost = new(-1);
     private HwndSource? windowSource;
     private string[] displayedRows = [];
 
@@ -90,6 +93,36 @@ public partial class StatsWindow : Window
         Rows.ItemsSource = rows;
     }
 
+    public void PositionPhysical(int left, int top, int width, int height)
+    {
+        var handle = new WindowInteropHelper(this).EnsureHandle();
+        if (!SetWindowPos(
+                handle,
+                HwndTopmost,
+                left,
+                top,
+                0,
+                0,
+                SwpNoSize | SwpNoActivate))
+        {
+            throw new InvalidOperationException(
+                "Unable to move the statistics window to the target monitor.");
+        }
+
+        if (!SetWindowPos(
+                handle,
+                HwndTopmost,
+                left,
+                top,
+                width,
+                height,
+                SwpNoActivate))
+        {
+            throw new InvalidOperationException(
+                "Unable to position the statistics window.");
+        }
+    }
+
     private static string FormatRow(DailyStatsEntry entry)
     {
         var date = entry.Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
@@ -116,4 +149,15 @@ public partial class StatsWindow : Window
         IntPtr windowHandle,
         int index,
         IntPtr newValue);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetWindowPos(
+        IntPtr windowHandle,
+        IntPtr insertAfter,
+        int x,
+        int y,
+        int width,
+        int height,
+        uint flags);
 }

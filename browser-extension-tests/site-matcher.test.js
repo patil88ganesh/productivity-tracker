@@ -1,5 +1,6 @@
 const assert = require("node:assert/strict");
 const {
+  classifyDistractingUrl,
   isDistractingUrl,
   matchesDistractingHost,
 } = require("../browser-extension/site-matcher.js");
@@ -22,6 +23,9 @@ for (const url of protectedUrls) {
 
 assert.equal(matchesDistractingHost("youtube.com"), true);
 assert.equal(matchesDistractingHost("WWW.LINKEDIN.COM"), true);
+assert.equal(classifyDistractingUrl("https://m.youtube.com/"), "youtube");
+assert.equal(classifyDistractingUrl("https://www.linkedin.com/feed/"), "other");
+assert.equal(classifyDistractingUrl("https://google.com/"), null);
 assert.equal(isDistractingUrl("https://google.com/"), false);
 assert.equal(isDistractingUrl("https://youtube.com.example.org/"), false);
 assert.equal(isDistractingUrl("not a URL"), false);

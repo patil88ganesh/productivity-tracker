@@ -380,6 +380,7 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
         static let frame = "ProductivityTracker.WindowFrame"
         static let opacity = "ProductivityTracker.OpacityPercent"
         static let focusProtection = "ProductivityTracker.FocusProtectionEnabled"
+        static let continueOnYouTube = "ProductivityTracker.ContinueOnYouTube"
         static let browserSetupShown = "ProductivityTracker.BrowserSetupShown"
     }
 
@@ -399,9 +400,10 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
     private var refreshTimer: Foundation.Timer?
     private var flashTimer: Foundation.Timer?
     private var flashStep = 0
-    private var browserReportsDistractingSite = false
+    private var browserActivity = BrowserActivityKind.none
     private var focusSocketServer: FocusSocketServer?
     private var focusProtectionEnabled: Bool
+    private var continueOnYouTube: Bool
     private var pendingStatsPersistenceError: Error?
     private var lastStatsPersistenceErrorSignature: String?
     private var statsWidgetVisible = false
@@ -409,11 +411,13 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
     private let toggleMenuItem = NSMenuItem()
     private let exitTimerMenuItem = NSMenuItem()
     private let focusProtectionMenuItem = NSMenuItem()
+    private let continueOnYouTubeMenuItem = NSMenuItem()
     private let statsMenuItem = NSMenuItem()
     private var opacityMenuItems: [NSMenuItem] = []
 
     init() {
         focusProtectionEnabled = UserDefaults.standard.bool(forKey: Settings.focusProtection)
+        continueOnYouTube = UserDefaults.standard.bool(forKey: Settings.continueOnYouTube)
         displayView = TimerDisplayView(frame: NSRect(x: 0, y: 0, width: 184, height: 58))
         let statsStore = DailyStatsStore()
         do {
@@ -464,15 +468,15 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
         }
         positionPlaybackButton()
 
-        focusSocketServer = FocusSocketServer { [weak self] active in
+        focusSocketServer = FocusSocketServer { [weak self] activity in
             guard let self else {
                 return
             }
-            self.browserReportsDistractingSite = active
+            self.browserActivity = activity
             self.performEngineTransition {
                 self.engine.setAutomaticPause(
                     .distractingWebsite,
-                    active: self.focusProtectionEnabled && active
+                    active: self.shouldPauseForBrowserActivity
                 )
             }
             self.refreshDisplay()
@@ -625,7 +629,7 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
         performEngineTransition {
             engine.setAutomaticPause(
                 .distractingWebsite,
-                active: focusProtectionEnabled && browserReportsDistractingSite
+                active: shouldPauseForBrowserActivity
             )
         }
         refreshDisplay()
@@ -634,6 +638,19 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
             defaults.set(true, forKey: Settings.browserSetupShown)
             showBrowserExtensionSetup()
         }
+    }
+
+    @objc private func toggleContinueOnYouTube() {
+        continueOnYouTube.toggle()
+        defaults.set(continueOnYouTube, forKey: Settings.continueOnYouTube)
+        continueOnYouTubeMenuItem.state = continueOnYouTube ? .on : .off
+        performEngineTransition {
+            engine.setAutomaticPause(
+                .distractingWebsite,
+                active: shouldPauseForBrowserActivity
+            )
+        }
+        refreshDisplay()
     }
 
     @objc private func openStatsWidget() {
@@ -683,6 +700,17 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
         NSApp.terminate(nil)
     }
 
+    private var shouldPauseForBrowserActivity: Bool {
+        guard focusProtectionEnabled, browserActivity != .none else {
+            return false
+        }
+        guard continueOnYouTube else {
+            return true
+        }
+        return browserActivity == .otherDistracting ||
+            browserActivity == .unknownDistracting
+    }
+
     private func configureMenu() {
         let menu = NSMenu()
 
@@ -710,6 +738,11 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
         focusProtectionMenuItem.action = #selector(toggleFocusProtection)
         focusProtectionMenuItem.state = focusProtectionEnabled ? .on : .off
         focusMenu.addItem(focusProtectionMenuItem)
+        continueOnYouTubeMenuItem.title = "Continue on YouTube"
+        continueOnYouTubeMenuItem.target = self
+        continueOnYouTubeMenuItem.action = #selector(toggleContinueOnYouTube)
+        continueOnYouTubeMenuItem.state = continueOnYouTube ? .on : .off
+        focusMenu.addItem(continueOnYouTubeMenuItem)
         focusMenu.addItem(.separator())
         focusMenu.addItem(makeMenuItem(
             "Browser Extension Setup…",
@@ -732,6 +765,7 @@ final class TimerWindowController: NSWindowController, NSWindowDelegate {
             opacityMenu.addItem(item)
             opacityMenuItems.append(item)
         }
+
         let opacityParent = NSMenuItem(title: "Opacity", action: nil, keyEquivalent: "")
         opacityParent.submenu = opacityMenu
         menu.addItem(opacityParent)

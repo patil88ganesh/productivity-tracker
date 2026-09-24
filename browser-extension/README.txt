@@ -25,5 +25,5 @@ registers the native messaging host for both browsers.
 
 Protected sites include Facebook, Instagram, X/Twitter, Reddit, LinkedIn,
 YouTube, TikTok, WhatsApp Web, Gmail, Google Drive, Docs, Sheets, and Slides.
-The extension sends only an active/inactive signal to the desktop app. It does
-not send URLs or history.
+The extension sends only an inactive, YouTube, or other-selected-site category
+to the desktop app. It does not send URLs, page content, or browsing history.

@@ -3,15 +3,15 @@
 Productivity Tracker is a compact, semi-transparent, always-on-top stopwatch
 and countdown timer for Windows and macOS.
 
-## Downloads — version 2.9.2
+## Downloads — version 2.10.0
 
-- **Windows 10/11 x64:** [ProductivityTracker-Setup.exe](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.9.2/ProductivityTracker-Setup.exe)
-- **macOS 12+ Apple silicon:** [ProductivityTracker-macOS-arm64.app.zip](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.9.2/ProductivityTracker-macOS-arm64.app.zip)
-- **macOS 12+ Intel:** [ProductivityTracker-macOS-x64.app.zip](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.9.2/ProductivityTracker-macOS-x64.app.zip)
+- **Windows 10/11 x64:** [ProductivityTracker-Setup.exe](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.10.0/ProductivityTracker-Setup.exe)
+- **macOS 12+ Apple silicon:** [ProductivityTracker-macOS-arm64.app.zip](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.10.0/ProductivityTracker-macOS-arm64.app.zip)
+- **macOS 12+ Intel:** [ProductivityTracker-macOS-x64.app.zip](https://github.com/patil88ganesh/productivity-tracker/releases/download/v2.10.0/ProductivityTracker-macOS-x64.app.zip)
 
 Release downloads will be published under:
 
-`https://github.com/patil88ganesh/productivity-tracker/releases/tag/v2.9.2`
+`https://github.com/patil88ganesh/productivity-tracker/releases/tag/v2.10.0`
 
 The macOS build is a beta with an ad-hoc signature and is not notarized. After
 extracting the zip, move `ProductivityTracker.app` to Applications and try to
@@ -24,6 +24,10 @@ confirm **Open**. Do not bypass Gatekeeper globally.
 
 - Middle-click the timer to pause or resume.
 - Left-click the compact square Play/Pause button inside the clock's right edge.
+- On Windows, the tracker starts in a compact dock at the far-left edge of the
+  taskbar and follows taskbar position and DPI changes when monitors change.
+- Right-click and choose **Undock from taskbar** to restore the resizable
+  floating tracker; choose **Dock to taskbar** to return it to the compact dock.
 - The inline button uses the clock's existing space, follows its transparency,
   and is disabled whenever a lock or Focus Protection pause reason is active,
   even if tracking was already paused manually.
@@ -33,13 +37,14 @@ confirm **Open**. Do not bypass Gatekeeper globally.
 - Hover over the clock for a highlighted surface, border, and shadow.
 - High-contrast status dots use saturated colors, an outline, and a soft glow.
 - Right-click for Pause/Resume, Reset, Add and Start, Set Timer, My stats
-  (mini), opacity, Minimize, Focus Protection, and Exit.
+  (mini), opacity, Dock/Undock, Minimize, Focus Protection, and Exit.
 - Add and Start accepts hours and minutes, adds them to the current stopwatch
   total, and immediately resumes counting.
 - Set Timer accepts hours, minutes, and seconds and starts a countdown.
 - Countdown completion plays a sound and flashes the display and app icon.
 - Opacity options are 40%, 55%, 70%, 85%, and 100%.
-- Window size, position, opacity, and Focus Protection preference persist.
+- Window size, position, opacity, Focus Protection, and Continue on YouTube
+  preferences persist.
 - A running stopwatch or countdown pauses while the user session is locked and
   resumes without counting locked time.
 - Session lock and Focus Protection are independent, overlapping automatic
@@ -68,6 +73,11 @@ Google Drive, Docs, Sheets, and Slides in Google Chrome and Microsoft Edge.
 5. Select the folder opened by Productivity Tracker.
 6. Enable **Pause on selected websites** in the timer menu.
 
+Enable **Continue on YouTube** in the same right-click submenu to keep the
+timer counting on YouTube while continuing to pause on the other selected
+websites. During an extension upgrade, legacy browser signals are treated as
+selected-site activity until the updated native host reports the exact category.
+
 After installing an app update, select **Reload** on the unpacked extension's
 card so its service worker, domain list, and native-host connection logic are
 refreshed.
@@ -77,8 +87,9 @@ setup copies the extension into the user's Application Support folder and
 registers the bundled Swift native host for Chrome and Edge. The macOS host
 uses a user-only local Unix domain socket to communicate with the app.
 
-The extension evaluates supported domains locally and sends only a boolean
-active/inactive state. It does not send URLs, page content, or browsing history.
+The extension evaluates supported domains locally and sends only an inactive,
+YouTube, or other-selected-site category. It does not send URLs, page content,
+or browsing history.
 It confirms delivery with the native host, retries disconnected signals, and
 shows an exclamation badge when the desktop app cannot be reached.
 

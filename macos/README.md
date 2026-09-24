@@ -44,9 +44,12 @@ and copies its path. Enable Developer mode on `chrome://extensions` or
 After installing an app update, select **Reload** on the unpacked extension's
 card to activate the latest domain list and connection fixes.
 
-The extension sends only a boolean active/inactive state. The native host
-forwards it over a user-only Unix domain socket; URLs and browsing history never
-leave the browser.
+Enable **Continue on YouTube** in the Focus Protection submenu to keep counting
+on YouTube while continuing to pause on the other selected websites.
+
+The extension sends only an inactive, YouTube, or other-selected-site category.
+The native host forwards it over a user-only Unix domain socket; URLs and
+browsing history never leave the browser.
 
 ## My stats (mini)
 

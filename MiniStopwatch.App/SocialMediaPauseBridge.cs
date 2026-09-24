@@ -1,22 +1,24 @@
 ﻿using System.IO;
 using System.IO.Pipes;
 
+using MiniStopwatch.Core;
+
 namespace MiniStopwatch.App;
 
 internal sealed class SocialMediaPauseBridge : IDisposable
 {
     public const string PipeName = "ProductivityTracker.SocialMediaPause";
 
-    private readonly Action<bool> stateChanged;
+    private readonly Action<BrowserActivityKind> stateChanged;
     private readonly CancellationTokenSource cancellation = new();
     private readonly Task listenerTask;
     private readonly object stateLock = new();
-    private readonly HashSet<int> activeConnections = [];
+    private readonly Dictionary<int, BrowserActivityKind> connectionStates = [];
     private int nextConnectionId;
-    private bool lastReportedState;
+    private BrowserActivityKind lastReportedState;
     private bool disposed;
 
-    public SocialMediaPauseBridge(Action<bool> stateChanged)
+    public SocialMediaPauseBridge(Action<BrowserActivityKind> stateChanged)
     {
         this.stateChanged = stateChanged;
         listenerTask = ListenAsync();
@@ -30,14 +32,14 @@ internal sealed class SocialMediaPauseBridge : IDisposable
         lock (stateLock)
         {
             disposed = true;
-            activeConnections.Clear();
-            shouldReport = lastReportedState;
-            lastReportedState = false;
+            connectionStates.Clear();
+            shouldReport = lastReportedState != BrowserActivityKind.None;
+            lastReportedState = BrowserActivityKind.None;
         }
 
         if (shouldReport)
         {
-            stateChanged(false);
+            stateChanged(BrowserActivityKind.None);
         }
 
         cancellation.Dispose();
@@ -89,7 +91,7 @@ internal sealed class SocialMediaPauseBridge : IDisposable
                         break;
                     }
 
-                    SetConnectionState(connectionId, message == "1");
+                    SetConnectionState(connectionId, ParseState(message));
                 }
             }
         }
@@ -101,13 +103,26 @@ internal sealed class SocialMediaPauseBridge : IDisposable
         }
         finally
         {
-            SetConnectionState(connectionId, active: false);
+            SetConnectionState(connectionId, BrowserActivityKind.None);
         }
     }
 
-    private void SetConnectionState(int connectionId, bool active)
+    private static BrowserActivityKind ParseState(string message)
     {
-        bool aggregateState;
+        return message switch
+        {
+            "y" => BrowserActivityKind.YouTube,
+            "1" => BrowserActivityKind.OtherDistracting,
+            "u" => BrowserActivityKind.UnknownDistracting,
+            _ => BrowserActivityKind.None,
+        };
+    }
+
+    private void SetConnectionState(
+        int connectionId,
+        BrowserActivityKind state)
+    {
+        BrowserActivityKind aggregateState;
         bool shouldReport;
         lock (stateLock)
         {
@@ -116,16 +131,25 @@ internal sealed class SocialMediaPauseBridge : IDisposable
                 return;
             }
 
-            if (active)
+            if (state != BrowserActivityKind.None)
             {
-                activeConnections.Add(connectionId);
+                connectionStates[connectionId] = state;
             }
             else
             {
-                activeConnections.Remove(connectionId);
+                connectionStates.Remove(connectionId);
             }
 
-            aggregateState = activeConnections.Count > 0;
+            aggregateState = connectionStates.Values.Contains(
+                BrowserActivityKind.OtherDistracting)
+                    ? BrowserActivityKind.OtherDistracting
+                    : connectionStates.Values.Contains(
+                        BrowserActivityKind.UnknownDistracting)
+                        ? BrowserActivityKind.UnknownDistracting
+                        : connectionStates.Values.Contains(
+                            BrowserActivityKind.YouTube)
+                            ? BrowserActivityKind.YouTube
+                            : BrowserActivityKind.None;
             shouldReport = lastReportedState != aggregateState;
             lastReportedState = aggregateState;
         }

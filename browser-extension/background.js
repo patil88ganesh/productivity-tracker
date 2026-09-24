@@ -3,10 +3,11 @@ importScripts("site-matcher.js");
 const NATIVE_HOST = "com.patil88ganesh.productivity_tracker";
 const HEARTBEAT_ALARM = "focus-protection-heartbeat";
 const RETRY_DELAY_MS = 5000;
-const { isDistractingUrl } = globalThis.ProductivityTrackerSites;
+const classifyUrl =
+  globalThis.ProductivityTrackerSites.classifyDistractingUrl;
 
 let nativePort;
-let currentState = false;
+let currentSite = null;
 let lastDeliveredState;
 let retryTimer;
 
@@ -54,16 +55,29 @@ function connectNativeHost() {
 
     if (!message.appConnected) {
       lastDeliveredState = undefined;
-      updateBadge(currentState, false);
+      updateBadge(currentSite !== null, false);
       scheduleRetry();
       return;
     }
 
-    lastDeliveredState =
-      typeof message.active === "boolean" ? message.active : currentState;
-    updateBadge(currentState);
-    if (lastDeliveredState !== currentState) {
-      reportState(currentState, true);
+    if (typeof message.site !== "string") {
+      const acknowledgedActive = Boolean(message.active);
+      const currentActive = currentSite !== null;
+      if (acknowledgedActive !== currentActive) {
+        lastDeliveredState = acknowledgedActive ? "other" : null;
+        reportState(currentSite, true);
+        return;
+      }
+
+      lastDeliveredState = currentSite;
+      updateBadge(currentSite !== null);
+      return;
+    }
+
+    lastDeliveredState = normalizeSite(message);
+    updateBadge(currentSite !== null);
+    if (lastDeliveredState !== currentSite) {
+      reportState(currentSite, true);
     }
   });
   port.onDisconnect.addListener(() => {
@@ -71,26 +85,37 @@ function connectNativeHost() {
       nativePort = undefined;
     }
     lastDeliveredState = undefined;
-    updateBadge(currentState, false);
+    updateBadge(currentSite !== null, false);
     scheduleRetry();
   });
   return port;
 }
 
-function reportState(active, force = false) {
-  currentState = active;
-  if (!force && lastDeliveredState === active) {
-    updateBadge(active);
+function normalizeSite(message) {
+  if (!message?.active) {
+    return null;
+  }
+
+  return message.site === "youtube" ? "youtube" : "other";
+}
+
+function reportState(site, force = false) {
+  currentSite = site;
+  if (!force && lastDeliveredState === site) {
+    updateBadge(site !== null);
     return;
   }
 
   try {
-    connectNativeHost().postMessage({ active });
-    updateBadge(active);
+    connectNativeHost().postMessage({
+      active: site !== null,
+      site: site || "none",
+    });
+    updateBadge(site !== null);
   } catch {
     nativePort = undefined;
     lastDeliveredState = undefined;
-    updateBadge(active, false);
+    updateBadge(site !== null, false);
     scheduleRetry();
   }
 }
@@ -99,7 +124,7 @@ async function evaluateActiveTab(force = false) {
   try {
     const focusedWindow = await chrome.windows.getLastFocused();
     if (!focusedWindow?.focused || typeof focusedWindow.id !== "number") {
-      reportState(false, force);
+      reportState(null, force);
       return;
     }
 
@@ -108,9 +133,9 @@ async function evaluateActiveTab(force = false) {
       windowId: focusedWindow.id,
     });
     const url = tab?.url || tab?.pendingUrl;
-    reportState(Boolean(tab && isDistractingUrl(url)), force);
+    reportState(tab ? classifyUrl(url) : null, force);
   } catch {
-    reportState(false, force);
+    reportState(null, force);
   }
 }
 
@@ -122,7 +147,7 @@ chrome.tabs.onUpdated.addListener((_tabId, changeInfo, tab) => {
 });
 chrome.windows.onFocusChanged.addListener((windowId) => {
   if (windowId === chrome.windows.WINDOW_ID_NONE) {
-    reportState(false);
+    reportState(null);
     return;
   }
 

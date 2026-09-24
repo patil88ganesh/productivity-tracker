@@ -17,12 +17,22 @@ private final class ApplicationConnection {
         closeConnection()
     }
 
-    func send(active: Bool) -> Bool {
+    func send(site: BrowserSite) -> Bool {
         if socketFD < 0 && !connect() {
             return false
         }
 
-        let bytes: [UInt8] = active ? [49, 10] : [48, 10]
+        let bytes: [UInt8]
+        switch site {
+        case .youtube:
+            bytes = [121, 10]
+        case .other:
+            bytes = [49, 10]
+        case .unknown:
+            bytes = [117, 10]
+        case .none:
+            bytes = [48, 10]
+        }
         var sent = 0
         while sent < bytes.count {
             let result = bytes.withUnsafeBytes { pointer in
@@ -101,7 +111,15 @@ private func readExactly(_ count: Int, from input: FileHandle) throws -> Data? {
 
 private struct BrowserState {
     let active: Bool
+    let site: BrowserSite
     let visitToken: String?
+}
+
+private enum BrowserSite: String {
+    case none
+    case youtube
+    case other
+    case unknown
 }
 
 private func readMessage(from input: FileHandle) throws -> BrowserState? {
@@ -121,18 +139,30 @@ private func readMessage(from input: FileHandle) throws -> BrowserState? {
     }
     let candidate = object["visitToken"] as? String
     let visitToken = candidate.flatMap { $0.utf8.count <= 64 ? $0 : nil }
-    return BrowserState(active: active, visitToken: visitToken)
+    let reportedSite = object["site"] as? String
+    let site: BrowserSite
+    if !active {
+        site = .none
+    } else if reportedSite == BrowserSite.youtube.rawValue {
+        site = .youtube
+    } else if reportedSite == BrowserSite.other.rawValue {
+        site = .other
+    } else {
+        site = .unknown
+    }
+    return BrowserState(active: active, site: site, visitToken: visitToken)
 }
 
 private func writeMessage(
-    active: Bool,
+    site: BrowserSite,
     visitToken: String?,
     appConnected: Bool,
     to output: FileHandle
 ) throws {
     var response: [String: Any] = [
         "ok": true,
-        "active": active,
+        "active": site != .none,
+        "site": site.rawValue,
         "appConnected": appConnected,
     ]
     if let visitToken {
@@ -153,17 +183,17 @@ private let applicationConnection = ApplicationConnection()
 
 do {
     while let state = try readMessage(from: input) {
-        let connected = applicationConnection.send(active: state.active)
+        let connected = applicationConnection.send(site: state.site)
         try writeMessage(
-            active: state.active,
+            site: state.site,
             visitToken: state.visitToken,
             appConnected: connected,
             to: output
         )
     }
-    _ = applicationConnection.send(active: false)
+    _ = applicationConnection.send(site: .none)
 } catch {
-    _ = applicationConnection.send(active: false)
+    _ = applicationConnection.send(site: .none)
     FileHandle.standardError.write(Data("Native messaging error: \(error)\n".utf8))
     exit(1)
 }

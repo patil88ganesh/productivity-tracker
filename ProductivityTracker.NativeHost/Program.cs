@@ -29,19 +29,21 @@ internal static class Program
                 {
                     visitToken = null;
                 }
-                var connected = SendToApplication(request != null && request.active);
+                var site = NormalizeSite(request);
+                var connected = SendToApplication(site);
                 WriteMessage(
                     output,
                     Serializer.Serialize(new
                     {
                         ok = true,
-                        active = request != null && request.active,
+                        active = site != BrowserSite.None,
+                        site = ToMessageValue(site),
                         visitToken,
                         appConnected = connected,
                     }));
             }
 
-            SendToApplication(active: false);
+            SendToApplication(BrowserSite.None);
             return 0;
         }
         catch (Exception exception)
@@ -107,7 +109,42 @@ internal static class Program
         }
     }
 
-    private static bool SendToApplication(bool active)
+    private static BrowserSite NormalizeSite(BrowserState request)
+    {
+        if (request == null || !request.active)
+        {
+            return BrowserSite.None;
+        }
+
+        return string.Equals(
+            request.site,
+            "youtube",
+            StringComparison.OrdinalIgnoreCase)
+                ? BrowserSite.YouTube
+                : string.Equals(
+                    request.site,
+                    "other",
+                    StringComparison.OrdinalIgnoreCase)
+                    ? BrowserSite.Other
+                    : BrowserSite.Unknown;
+    }
+
+    private static string ToMessageValue(BrowserSite site)
+    {
+        switch (site)
+        {
+            case BrowserSite.YouTube:
+                return "youtube";
+            case BrowserSite.Other:
+                return "other";
+            case BrowserSite.Unknown:
+                return "unknown";
+            default:
+                return "none";
+        }
+    }
+
+    private static bool SendToApplication(BrowserSite site)
     {
         if (pipe == null || !pipe.IsConnected)
         {
@@ -122,7 +159,11 @@ internal static class Program
 
         try
         {
-            var signal = Encoding.ASCII.GetBytes(active ? "1\n" : "0\n");
+            var signal = Encoding.ASCII.GetBytes(
+                site == BrowserSite.YouTube ? "y\n" :
+                site == BrowserSite.Other ? "1\n" :
+                site == BrowserSite.Unknown ? "u\n" :
+                "0\n");
             pipe.Write(signal, 0, signal.Length);
             pipe.Flush();
             return true;
@@ -163,6 +204,16 @@ internal static class Program
     {
         public bool active { get; set; }
 
+        public string site { get; set; }
+
         public object visitToken { get; set; }
+    }
+
+    private enum BrowserSite
+    {
+        None,
+        YouTube,
+        Other,
+        Unknown,
     }
 }

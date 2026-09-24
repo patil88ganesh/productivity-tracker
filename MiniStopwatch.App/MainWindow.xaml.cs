@@ -1,8 +1,10 @@
 ﻿using System.Media;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -20,17 +22,32 @@ public partial class MainWindow : Window
     private const int WmNcLeftButtonDown = 0x00A1;
     private const int WmNcRightButtonDown = 0x00A4;
     private const int WmNcMiddleButtonDown = 0x00A7;
+    private const int WmSettingChange = 0x001A;
+    private const int WmDisplayChange = 0x007E;
     private const int WmWtsSessionChange = 0x02B1;
+    private const int WmDpiChanged = 0x02E0;
     private const int WtsSessionLock = 0x7;
     private const int WtsSessionUnlock = 0x8;
     private const int NotifyForThisSession = 0;
     private const int DefaultOpacityPercent = 85;
     private const string SettingsRegistryPath = @"Software\ProductivityTracker";
     private const string LegacySettingsRegistryPath = @"Software\MiniStopwatch";
+    private const string ExplorerAdvancedRegistryPath =
+        @"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced";
+    private const string WidgetsTaskbarRegistryValue = "TaskbarDa";
+    private const string WidgetsPolicyRegistryPath =
+        @"SOFTWARE\Policies\Microsoft\Dsh";
+    private const string WidgetsPolicyRegistryValue = "AllowNewsAndInterests";
+    private const string DisableWidgetsBoardPolicyRegistryValue =
+        "DisableWidgetsBoard";
+    private const string WebExperiencePackageFamily =
+        "MicrosoftWindows.Client.WebExperience_cw5n1h2txyewy";
+    private const int ErrorInsufficientBuffer = 122;
     private const string OpacityRegistryValue = "OpacityPercent";
     private const string WidthRegistryValue = "WindowWidth";
     private const string HeightRegistryValue = "WindowHeight";
     private const string SocialMediaPauseRegistryValue = "SocialMediaPauseEnabled";
+    private const string ContinueOnYouTubeRegistryValue = "ContinueOnYouTube";
     private const string BrowserSetupShownRegistryValue = "BrowserSetupShown";
     private const string NativeHostName = "com.patil88ganesh.productivity_tracker";
     private const string NativeHostManifestFile = "native-messaging-host.json";
@@ -43,27 +60,55 @@ public partial class MainWindow : Window
     private const uint FlashWindowAll = 0x00000003;
     private const double DefaultWidth = 184;
     private const double DefaultHeight = 58;
+    private const double DockedWidth = 123.2;
+    private const double DockedHeight = 39.6;
+    private const double DockedMinimumWidth = 105.6;
+    private const double DockedMinimumHeight = 35.2;
+    private const int DockGap = 6;
     private const double StatsWindowGap = 4;
+    private static readonly Thickness NormalTrackerPadding = new(9, 5, 9, 5);
+    private static readonly Thickness DockedTrackerPadding = new(6, 2, 6, 2);
+    private static readonly IntPtr HwndTopmost = new(-1);
+    private const long DockVisibilityIntervalMilliseconds = 500;
+    private const int DockReflowIntervalMilliseconds = 250;
+    private const int DockReflowAttempts = 8;
+    private const long BrowserForegroundCheckIntervalMilliseconds = 500;
+    private const uint SwpNoSize = 0x0001;
+    private const uint SwpNoMove = 0x0002;
+    private const uint SwpNoActivate = 0x0010;
+    private const uint SwpShowWindow = 0x0040;
+    private const uint AbmGetState = 0x00000004;
+    private const uint AbmGetTaskbarPos = 0x00000005;
+    private const uint AbsAutoHide = 0x00000001;
 
     private readonly TrackingController tracker = new(new SystemMonotonicClock());
     private readonly DailyStatsStore dailyStatsStore;
     private readonly DispatcherTimer displayTimer;
     private readonly DispatcherTimer completionFlashTimer;
+    private readonly DispatcherTimer dockReflowTimer;
     private readonly MenuItem[] opacityMenuItems;
     private readonly SocialMediaPauseBridge socialMediaPauseBridge;
-    private readonly SolidColorBrush normalBorderBrush =
+    private readonly SolidColorBrush idleBorderBrush =
         new(Color.FromArgb(0x7F, 0x9A, 0xA0, 0xA5));
-    private readonly SolidColorBrush hoverBorderBrush =
-        new(Color.FromRgb(0x2D, 0x96, 0xE8));
+    private readonly SolidColorBrush runningBorderBrush =
+        new(Color.FromArgb(0xB5, 0x00, 0xC8, 0x53));
+    private readonly SolidColorBrush stoppedBorderBrush =
+        new(Color.FromArgb(0xB5, 0xE5, 0x39, 0x35));
     private readonly SolidColorBrush normalBackgroundBrush = new(Colors.White);
-    private readonly SolidColorBrush hoverBackgroundBrush =
-        new(Color.FromRgb(0xF1, 0xF9, 0xFF));
+    private readonly SolidColorBrush runningHoverBackgroundBrush =
+        new(Color.FromRgb(0xF1, 0xFF, 0xF6));
+    private readonly SolidColorBrush stoppedHoverBackgroundBrush =
+        new(Color.FromRgb(0xFF, 0xF4, 0xF4));
+    private readonly SolidColorBrush idleHoverBackgroundBrush =
+        new(Color.FromRgb(0xF5, 0xF6, 0xF7));
     private readonly SolidColorBrush completionBrush =
         new(Color.FromRgb(0xFF, 0x17, 0x44));
     private readonly SolidColorBrush automaticPauseBrush =
         new(Color.FromRgb(0xFF, 0x8F, 0x00));
     private readonly SolidColorBrush runningBrush =
         new(Color.FromRgb(0x00, 0xC8, 0x53));
+    private readonly SolidColorBrush stoppedBrush =
+        new(Color.FromRgb(0xE5, 0x39, 0x35));
     private readonly SolidColorBrush pausedBrush =
         new(Color.FromRgb(0x59, 0x63, 0x6E));
     private HwndSource? windowSource;
@@ -71,9 +116,22 @@ public partial class MainWindow : Window
     private bool isCompletionFlashing;
     private bool isPointerOver;
     private bool isClosing;
+    private bool isDockedToTaskbar;
+    private bool isDockedInsideTaskbar;
+    private bool isApplyingDockLayout;
     private bool socialMediaPauseEnabled;
-    private bool browserReportsDistractingSite;
+    private bool continueOnYouTube;
+    private BrowserActivityKind browserActivity;
     private StatsWindow? statsWindow;
+    private Rect undockedBounds;
+    private WindowRect undockedPhysicalBounds;
+    private bool hasUndockedPhysicalBounds;
+    private IntPtr dockedTaskbarHandle;
+    private WindowRect dockedTaskbarRect;
+    private uint dockedTaskbarDpi;
+    private int remainingDockReflowAttempts;
+    private long nextDockVisibilityCheck;
+    private long nextBrowserForegroundCheck;
 
     public MainWindow()
     {
@@ -92,6 +150,8 @@ public partial class MainWindow : Window
         LoadWindowSize();
         socialMediaPauseEnabled = LoadBooleanSetting(SocialMediaPauseRegistryValue);
         SocialMediaPauseMenuItem.IsChecked = socialMediaPauseEnabled;
+        continueOnYouTube = LoadBooleanSetting(ContinueOnYouTubeRegistryValue);
+        ContinueOnYouTubeMenuItem.IsChecked = continueOnYouTube;
         socialMediaPauseBridge = new SocialMediaPauseBridge(OnBrowserActivityChanged);
 
         displayTimer = new DispatcherTimer(DispatcherPriority.Render)
@@ -106,6 +166,12 @@ public partial class MainWindow : Window
             Interval = TimeSpan.FromMilliseconds(250),
         };
         completionFlashTimer.Tick += CompletionFlashTimer_Tick;
+
+        dockReflowTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(DockReflowIntervalMilliseconds),
+        };
+        dockReflowTimer.Tick += DockReflowTimer_Tick;
         RefreshDisplay();
     }
 
@@ -119,6 +185,8 @@ public partial class MainWindow : Window
         {
             throw new InvalidOperationException("Unable to register for Windows session notifications.");
         }
+
+        DockToTaskbar();
     }
 
     private void Window_Closed(object? sender, EventArgs e)
@@ -128,6 +196,7 @@ public partial class MainWindow : Window
         dailyStatsStore.Save();
         displayTimer.Stop();
         completionFlashTimer.Stop();
+        dockReflowTimer.Stop();
         socialMediaPauseBridge.Dispose();
         statsWindow?.Close();
         SaveWindowSize();
@@ -153,7 +222,7 @@ public partial class MainWindow : Window
             HideStatsWindow();
         }
 
-        if (message == WmNcHitTest)
+        if (message == WmNcHitTest && !isDockedToTaskbar)
         {
             var resizeResult = GetResizeHitTest(hwnd, lParam);
             if (resizeResult != ResizeRegion.Client)
@@ -161,6 +230,11 @@ public partial class MainWindow : Window
                 handled = true;
                 return (IntPtr)(int)resizeResult;
             }
+        }
+
+        if (message is WmDisplayChange or WmSettingChange or WmDpiChanged)
+        {
+            ScheduleDockReflow();
         }
 
         if (message != WmWtsSessionChange)
@@ -200,7 +274,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (e.ChangedButton == MouseButton.Left)
+        if (e.ChangedButton == MouseButton.Left && !isDockedToTaskbar)
         {
             DragMove();
         }
@@ -268,8 +342,7 @@ public partial class MainWindow : Window
     {
         socialMediaPauseEnabled = SocialMediaPauseMenuItem.IsChecked;
         SaveBooleanSetting(SocialMediaPauseRegistryValue, socialMediaPauseEnabled);
-        tracker.OnDistractingWebsiteChanged(
-            socialMediaPauseEnabled && browserReportsDistractingSite);
+        ApplyBrowserPauseState();
         RefreshDisplay();
 
         if (socialMediaPauseEnabled &&
@@ -278,6 +351,14 @@ public partial class MainWindow : Window
             SaveBooleanSetting(BrowserSetupShownRegistryValue, enabled: true);
             ShowBrowserExtensionSetup();
         }
+    }
+
+    private void ContinueOnYouTubeMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        continueOnYouTube = ContinueOnYouTubeMenuItem.IsChecked;
+        SaveBooleanSetting(ContinueOnYouTubeRegistryValue, continueOnYouTube);
+        ApplyBrowserPauseState();
+        RefreshDisplay();
     }
 
     private void BrowserExtensionSetupMenuItem_Click(object sender, RoutedEventArgs e)
@@ -320,6 +401,18 @@ public partial class MainWindow : Window
         WindowState = WindowState.Minimized;
     }
 
+    private void DockToTaskbarMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (isDockedToTaskbar)
+        {
+            UndockFromTaskbar();
+        }
+        else
+        {
+            DockToTaskbar();
+        }
+    }
+
     private void Window_StateChanged(object? sender, EventArgs e)
     {
         if (WindowState == WindowState.Minimized)
@@ -331,18 +424,640 @@ public partial class MainWindow : Window
         HideStatsWindow();
         ShowInTaskbar = false;
         Topmost = true;
+        if (isDockedToTaskbar)
+        {
+            Dispatcher.BeginInvoke(PositionDockedWindow, DispatcherPriority.Loaded);
+        }
     }
 
     private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         ScaleDisplay();
         PositionStatsWindow();
+        if (isDockedToTaskbar && !isApplyingDockLayout)
+        {
+            Dispatcher.BeginInvoke(PositionDockedWindow, DispatcherPriority.Loaded);
+        }
     }
 
     private void Window_LocationChanged(object? sender, EventArgs e)
     {
         PositionStatsWindow();
     }
+
+    private void DockToTaskbar()
+    {
+        HideStatsWindow();
+        if (WindowState != WindowState.Normal)
+        {
+            WindowState = WindowState.Normal;
+        }
+
+        undockedBounds = GetCurrentWindowBounds();
+        var handle = new WindowInteropHelper(this).Handle;
+        hasUndockedPhysicalBounds =
+            handle != IntPtr.Zero &&
+            GetWindowRect(handle, out undockedPhysicalBounds);
+        isDockedToTaskbar = true;
+        DockToTaskbarMenuItem.Header = "Undock from taskbar";
+        ResizeMode = ResizeMode.NoResize;
+        MinWidth = DockedMinimumWidth;
+        MinHeight = DockedMinimumHeight;
+        TrackerBorder.Padding = DockedTrackerPadding;
+        PositionDockedWindow();
+    }
+
+    private void UndockFromTaskbar()
+    {
+        isDockedToTaskbar = false;
+        isDockedInsideTaskbar = false;
+        dockReflowTimer.Stop();
+        remainingDockReflowAttempts = 0;
+        dockedTaskbarHandle = IntPtr.Zero;
+        dockedTaskbarRect = default;
+        dockedTaskbarDpi = 0;
+        DockToTaskbarMenuItem.Header = "Dock to taskbar";
+        ResizeMode = ResizeMode.CanResize;
+        MinWidth = 140;
+        MinHeight = 48;
+        TrackerBorder.Padding = NormalTrackerPadding;
+
+        var handle = new WindowInteropHelper(this).Handle;
+        if (handle != IntPtr.Zero && hasUndockedPhysicalBounds)
+        {
+            var restoreBounds = KeepOnVisibleMonitor(undockedPhysicalBounds);
+            if (!SetWindowPos(
+                    handle,
+                    HwndTopmost,
+                    restoreBounds.Left,
+                    restoreBounds.Top,
+                    0,
+                    0,
+                    SwpNoSize | SwpNoActivate | SwpShowWindow))
+            {
+                throw new Win32Exception(
+                    Marshal.GetLastWin32Error(),
+                    "Productivity Tracker could not restore its floating monitor.");
+            }
+
+            if (!SetWindowPos(
+                    handle,
+                    HwndTopmost,
+                    restoreBounds.Left,
+                    restoreBounds.Top,
+                    restoreBounds.Right - restoreBounds.Left,
+                    restoreBounds.Bottom - restoreBounds.Top,
+                    SwpNoActivate | SwpShowWindow))
+            {
+                throw new Win32Exception(
+                    Marshal.GetLastWin32Error(),
+                    "Productivity Tracker could not restore its floating position.");
+            }
+        }
+        else if (!undockedBounds.IsEmpty)
+        {
+            Left = undockedBounds.Left;
+            Top = undockedBounds.Top;
+            Width = Math.Max(MinWidth, undockedBounds.Width);
+            Height = Math.Max(MinHeight, undockedBounds.Height);
+        }
+        else
+        {
+            Width = DefaultWidth;
+            Height = DefaultHeight;
+        }
+
+        Topmost = true;
+        ScaleDisplay();
+    }
+
+    private static WindowRect KeepOnVisibleMonitor(WindowRect bounds)
+    {
+        var monitor = MonitorFromRect(ref bounds, MonitorDefaultToNearest);
+        var monitorInfo = new NativeMonitorInfo
+        {
+            Size = (uint)Marshal.SizeOf<NativeMonitorInfo>(),
+        };
+        if (monitor == IntPtr.Zero || !GetMonitorInfo(monitor, ref monitorInfo))
+        {
+            return bounds;
+        }
+
+        var workArea = monitorInfo.WorkArea;
+        var width = Math.Min(
+            bounds.Right - bounds.Left,
+            workArea.Right - workArea.Left);
+        var height = Math.Min(
+            bounds.Bottom - bounds.Top,
+            workArea.Bottom - workArea.Top);
+        var left = Math.Clamp(
+            bounds.Left,
+            workArea.Left,
+            workArea.Right - width);
+        var top = Math.Clamp(
+            bounds.Top,
+            workArea.Top,
+            workArea.Bottom - height);
+        return new WindowRect
+        {
+            Left = left,
+            Top = top,
+            Right = left + width,
+            Bottom = top + height,
+        };
+    }
+
+    private void PositionDockedWindow()
+    {
+        if (!isDockedToTaskbar || isApplyingDockLayout)
+        {
+            return;
+        }
+
+        var taskbarHandle = FindWindow("Shell_TrayWnd", null);
+        if (taskbarHandle == IntPtr.Zero ||
+            !TryGetStableTaskbarRect(
+                taskbarHandle,
+                out var taskbarRect,
+                out var actualTaskbarRect))
+        {
+            return;
+        }
+
+        var taskbarMonitorRect = taskbarRect;
+        var taskbarMonitor = MonitorFromRect(
+            ref taskbarMonitorRect,
+            MonitorDefaultToNearest);
+        var taskbarMonitorInfo = new NativeMonitorInfo
+        {
+            Size = (uint)Marshal.SizeOf<NativeMonitorInfo>(),
+        };
+        if (taskbarMonitor == IntPtr.Zero ||
+            !GetMonitorInfo(taskbarMonitor, ref taskbarMonitorInfo))
+        {
+            return;
+        }
+
+        var taskbarDpi = GetEffectiveMonitorDpi(
+            taskbarMonitor,
+            taskbarHandle);
+        var dpiScale = taskbarDpi / 96d;
+        if (dpiScale <= 0)
+        {
+            dpiScale = 1;
+        }
+
+        var desiredWidth = (int)Math.Round(DockedWidth * dpiScale);
+        var desiredHeight = (int)Math.Round(DockedHeight * dpiScale);
+        var gap = (int)Math.Round(DockGap * dpiScale);
+        var taskbarWidth = taskbarRect.Right - taskbarRect.Left;
+        var taskbarHeight = taskbarRect.Bottom - taskbarRect.Top;
+        var isHorizontal = taskbarWidth >= taskbarHeight;
+        int left;
+        int top;
+
+        if (isHorizontal)
+        {
+            desiredHeight = Math.Min(
+                desiredHeight,
+                Math.Max(
+                    (int)Math.Round(DockedMinimumHeight * dpiScale),
+                    taskbarHeight - gap));
+            left = GetLeftmostAvailableTaskbarPosition(
+                taskbarHandle,
+                taskbarRect,
+                actualTaskbarRect,
+                desiredWidth,
+                gap);
+            isDockedInsideTaskbar = left != int.MinValue;
+            top = taskbarRect.Top + (taskbarHeight - desiredHeight) / 2;
+            if (left == int.MinValue)
+            {
+                var monitorArea = taskbarMonitorInfo.MonitorArea;
+                var distanceFromTop = Math.Abs(
+                    taskbarRect.Top - monitorArea.Top);
+                var distanceFromBottom = Math.Abs(
+                    monitorArea.Bottom - taskbarRect.Bottom);
+                var taskbarOnTop = distanceFromTop <= distanceFromBottom;
+                left = monitorArea.Left + gap;
+                top = taskbarOnTop
+                    ? taskbarRect.Bottom + gap
+                    : taskbarRect.Top - desiredHeight - gap;
+            }
+        }
+        else
+        {
+            isDockedInsideTaskbar = false;
+            var monitorArea = taskbarMonitorInfo.MonitorArea;
+            var distanceFromLeft = Math.Abs(
+                taskbarRect.Left - monitorArea.Left);
+            var distanceFromRight = Math.Abs(
+                monitorArea.Right - taskbarRect.Right);
+            var taskbarOnLeft = distanceFromLeft <= distanceFromRight;
+            left = taskbarOnLeft
+                ? taskbarRect.Right + gap
+                : taskbarRect.Left - desiredWidth - gap;
+            top = taskbarRect.Bottom - desiredHeight - gap;
+        }
+
+        var owningMonitorArea = taskbarMonitorInfo.MonitorArea;
+        left = Math.Clamp(
+            left,
+            owningMonitorArea.Left,
+            owningMonitorArea.Right - desiredWidth);
+        top = Math.Clamp(
+            top,
+            owningMonitorArea.Top,
+            owningMonitorArea.Bottom - desiredHeight);
+
+        var handle = new WindowInteropHelper(this).Handle;
+        if (handle == IntPtr.Zero)
+        {
+            return;
+        }
+
+        isApplyingDockLayout = true;
+        try
+        {
+            if (!SetWindowPos(
+                    handle,
+                    HwndTopmost,
+                    left,
+                    top,
+                    desiredWidth,
+                    desiredHeight,
+                    SwpNoActivate | SwpShowWindow))
+            {
+                throw new InvalidOperationException(
+                    "Productivity Tracker could not be docked to the taskbar.");
+            }
+
+            dockedTaskbarHandle = taskbarHandle;
+            dockedTaskbarRect = taskbarRect;
+            dockedTaskbarDpi = taskbarDpi;
+            nextDockVisibilityCheck =
+                Environment.TickCount64 + DockVisibilityIntervalMilliseconds;
+            Topmost = true;
+            ScaleDisplay();
+        }
+        finally
+        {
+            isApplyingDockLayout = false;
+        }
+    }
+
+    private static int GetLeftmostAvailableTaskbarPosition(
+        IntPtr taskbarHandle,
+        WindowRect stableTaskbarRect,
+        WindowRect actualTaskbarRect,
+        int desiredWidth,
+        int gap)
+    {
+        if (IsWidgetsTaskbarSurfaceEnabled())
+        {
+            return int.MinValue;
+        }
+
+        if (!TryGetTaskbarChildRect(
+            taskbarHandle,
+            "Start",
+            stableTaskbarRect,
+            actualTaskbarRect,
+            out var startRect) ||
+            !TryGetTaskbarChildRect(
+            taskbarHandle,
+            "TrayNotifyWnd",
+            stableTaskbarRect,
+            actualTaskbarRect,
+            out var trayRect))
+        {
+            return int.MinValue;
+        }
+
+        var left = stableTaskbarRect.Left + gap;
+        var right = left + desiredWidth;
+        foreach (var reservedArea in new[] { startRect, trayRect })
+        {
+            if (right <= reservedArea.Left - gap ||
+                left >= reservedArea.Right + gap)
+            {
+                continue;
+            }
+
+            return int.MinValue;
+        }
+
+        var candidate = new WindowRect
+        {
+            Left = left,
+            Top = stableTaskbarRect.Top,
+            Right = right,
+            Bottom = stableTaskbarRect.Bottom,
+        };
+        return right <= stableTaskbarRect.Right - gap &&
+            IsTaskbarSlotClear(
+                taskbarHandle,
+                stableTaskbarRect,
+                actualTaskbarRect,
+                candidate)
+                ? left
+                : int.MinValue;
+    }
+
+    private static bool IsWidgetsTaskbarSurfaceEnabled()
+    {
+        using var policyKey = Registry.LocalMachine.OpenSubKey(
+            WidgetsPolicyRegistryPath);
+        if (policyKey?.GetValue(WidgetsPolicyRegistryValue) is int policyValue &&
+            policyValue == 0)
+        {
+            return false;
+        }
+
+        if (policyKey?.GetValue(DisableWidgetsBoardPolicyRegistryValue) is
+                int disableBoardValue &&
+            disableBoardValue != 0)
+        {
+            return false;
+        }
+
+        using var key = Registry.CurrentUser.OpenSubKey(
+            ExplorerAdvancedRegistryPath);
+        if (key?.GetValue(WidgetsTaskbarRegistryValue) is int configuredValue)
+        {
+            return configuredValue != 0;
+        }
+
+        if (Environment.OSVersion.Version.Build < 22000)
+        {
+            return false;
+        }
+
+        uint packageCount = 0;
+        uint bufferLength = 0;
+        var result = GetPackagesByPackageFamily(
+            WebExperiencePackageFamily,
+            ref packageCount,
+            IntPtr.Zero,
+            ref bufferLength,
+            IntPtr.Zero);
+        return result == ErrorInsufficientBuffer && packageCount > 0;
+    }
+
+    private static bool IsTaskbarSlotClear(
+        IntPtr taskbarHandle,
+        WindowRect stableTaskbarRect,
+        WindowRect actualTaskbarRect,
+        WindowRect candidate)
+    {
+        var horizontalOffset =
+            stableTaskbarRect.Left - actualTaskbarRect.Left;
+        var verticalOffset =
+            stableTaskbarRect.Top - actualTaskbarRect.Top;
+        var taskbarWidth = stableTaskbarRect.Right - stableTaskbarRect.Left;
+        var taskbarHeight = stableTaskbarRect.Bottom - stableTaskbarRect.Top;
+        var isClear = true;
+        _ = EnumChildWindows(
+            taskbarHandle,
+            (childHandle, _) =>
+            {
+                if (!IsWindowVisible(childHandle) ||
+                    !GetWindowRect(childHandle, out var childRect))
+                {
+                    return true;
+                }
+
+                childRect.Left += horizontalOffset;
+                childRect.Right += horizontalOffset;
+                childRect.Top += verticalOffset;
+                childRect.Bottom += verticalOffset;
+                var childWidth = childRect.Right - childRect.Left;
+                var childHeight = childRect.Bottom - childRect.Top;
+                var isShellContainer =
+                    childWidth >= taskbarWidth * 0.8 &&
+                    childHeight >= taskbarHeight * 0.8;
+                if (!isShellContainer &&
+                    RectanglesOverlap(candidate, childRect))
+                {
+                    isClear = false;
+                    return false;
+                }
+
+                return true;
+            },
+            IntPtr.Zero);
+        return isClear;
+    }
+
+    private static bool RectanglesOverlap(
+        WindowRect left,
+        WindowRect right) =>
+        left.Left < right.Right &&
+        left.Right > right.Left &&
+        left.Top < right.Bottom &&
+        left.Bottom > right.Top;
+
+    private static bool TryGetTaskbarChildRect(
+        IntPtr taskbarHandle,
+        string className,
+        WindowRect stableTaskbarRect,
+        WindowRect actualTaskbarRect,
+        out WindowRect childRect)
+    {
+        var childHandle = FindWindowEx(
+            taskbarHandle,
+            IntPtr.Zero,
+            className,
+            null);
+        if (childHandle == IntPtr.Zero ||
+            !GetWindowRect(childHandle, out childRect))
+        {
+            childRect = default;
+            return false;
+        }
+
+        var horizontalOffset =
+            stableTaskbarRect.Left - actualTaskbarRect.Left;
+        var verticalOffset =
+            stableTaskbarRect.Top - actualTaskbarRect.Top;
+        childRect.Left += horizontalOffset;
+        childRect.Right += horizontalOffset;
+        childRect.Top += verticalOffset;
+        childRect.Bottom += verticalOffset;
+        return true;
+    }
+
+    private static bool TryGetStableTaskbarRect(
+        IntPtr taskbarHandle,
+        out WindowRect stableRect,
+        out WindowRect actualRect)
+    {
+        if (!GetWindowRect(taskbarHandle, out actualRect))
+        {
+            stableRect = default;
+            return false;
+        }
+
+        stableRect = actualRect;
+        var appBarData = new AppBarData
+        {
+            Size = (uint)Marshal.SizeOf<AppBarData>(),
+            WindowHandle = taskbarHandle,
+        };
+        var autoHideEnabled =
+            (SHAppBarMessage(AbmGetState, ref appBarData) & AbsAutoHide) != 0;
+        if (!autoHideEnabled)
+        {
+            return true;
+        }
+
+        appBarData = new AppBarData
+        {
+            Size = (uint)Marshal.SizeOf<AppBarData>(),
+            WindowHandle = taskbarHandle,
+        };
+        if (SHAppBarMessage(AbmGetTaskbarPos, ref appBarData) == 0)
+        {
+            return true;
+        }
+
+        stableRect = appBarData.Rectangle;
+        return true;
+    }
+
+    private static uint GetEffectiveMonitorDpi(
+        IntPtr monitorHandle,
+        IntPtr fallbackWindowHandle)
+    {
+        if (monitorHandle != IntPtr.Zero &&
+            GetDpiForMonitor(
+                monitorHandle,
+                0,
+                out var horizontalDpi,
+                out _) == 0 &&
+            horizontalDpi > 0)
+        {
+            return horizontalDpi;
+        }
+
+        return GetDpiForWindow(fallbackWindowHandle);
+    }
+
+    private void ScheduleDockReflow()
+    {
+        if (!isDockedToTaskbar || isClosing)
+        {
+            return;
+        }
+
+        remainingDockReflowAttempts = DockReflowAttempts;
+        nextDockVisibilityCheck = 0;
+        Dispatcher.BeginInvoke(PositionDockedWindow, DispatcherPriority.Loaded);
+        if (!dockReflowTimer.IsEnabled)
+        {
+            dockReflowTimer.Start();
+        }
+    }
+
+    private void DockReflowTimer_Tick(object? sender, EventArgs e)
+    {
+        if (!isDockedToTaskbar ||
+            isClosing ||
+            remainingDockReflowAttempts <= 0)
+        {
+            dockReflowTimer.Stop();
+            remainingDockReflowAttempts = 0;
+            return;
+        }
+
+        remainingDockReflowAttempts--;
+        PositionDockedWindow();
+    }
+
+    private void EnsureDockedWindowVisible()
+    {
+        if (!isDockedToTaskbar ||
+            isApplyingDockLayout ||
+            WindowState != WindowState.Normal ||
+            Environment.TickCount64 < nextDockVisibilityCheck)
+        {
+            return;
+        }
+
+        nextDockVisibilityCheck =
+            Environment.TickCount64 + DockVisibilityIntervalMilliseconds;
+        var taskbarHandle = FindWindow("Shell_TrayWnd", null);
+        if (taskbarHandle == IntPtr.Zero ||
+            !TryGetStableTaskbarRect(
+                taskbarHandle,
+                out var taskbarRect,
+                out var actualTaskbarRect))
+        {
+            return;
+        }
+
+        var handle = new WindowInteropHelper(this).Handle;
+        if (handle == IntPtr.Zero)
+        {
+            return;
+        }
+
+        var taskbarMonitorRect = taskbarRect;
+        var taskbarMonitor = MonitorFromRect(
+            ref taskbarMonitorRect,
+            MonitorDefaultToNearest);
+        var taskbarDpi = GetEffectiveMonitorDpi(
+            taskbarMonitor,
+            taskbarHandle);
+        if (taskbarHandle != dockedTaskbarHandle ||
+            !AreEqual(taskbarRect, dockedTaskbarRect) ||
+            taskbarDpi != dockedTaskbarDpi)
+        {
+            ScheduleDockReflow();
+            return;
+        }
+
+        if (isDockedInsideTaskbar &&
+            GetWindowRect(handle, out var dockedWindowRect))
+        {
+            var gap = (int)Math.Round(DockGap * taskbarDpi / 96d);
+            var expectedLeft = GetLeftmostAvailableTaskbarPosition(
+                taskbarHandle,
+                taskbarRect,
+                actualTaskbarRect,
+                dockedWindowRect.Right - dockedWindowRect.Left,
+                gap);
+            if (expectedLeft == int.MinValue ||
+                dockedWindowRect.Left != expectedLeft)
+            {
+                ScheduleDockReflow();
+                return;
+            }
+        }
+
+        if (!SetWindowPos(
+                handle,
+                HwndTopmost,
+                0,
+                0,
+                0,
+                0,
+                SwpNoMove |
+                SwpNoSize |
+                SwpNoActivate |
+                SwpShowWindow))
+        {
+            throw new Win32Exception(
+                Marshal.GetLastWin32Error(),
+                "Productivity Tracker could not remain above the taskbar.");
+        }
+    }
+
+    private static bool AreEqual(WindowRect left, WindowRect right) =>
+        left.Left == right.Left &&
+        left.Top == right.Top &&
+        left.Right == right.Right &&
+        left.Bottom == right.Bottom;
 
     private void TrackerBorder_MouseEnter(object sender, MouseEventArgs e)
     {
@@ -369,6 +1084,8 @@ public partial class MainWindow : Window
 
     private void RefreshDisplay()
     {
+        EnsureDockedWindowVisible();
+        RefreshBrowserPauseForForeground();
         dailyStatsStore.Sample(tracker.IsRunning, GetMaximumStatsDuration());
         if (tracker.Update())
         {
@@ -423,11 +1140,7 @@ public partial class MainWindow : Window
                     ? "Running"
                     : "Paused";
         InlinePlaybackButton.IsEnabled = !tracker.IsPlaybackControlBlocked;
-        InlinePlaybackButton.Foreground = tracker.IsPlaybackControlBlocked
-            ? pausedBrush
-            : tracker.IsRunning
-                ? automaticPauseBrush
-                : runningBrush;
+        InlinePlaybackButton.Foreground = GetVisualStateBrush();
         InlinePlaybackButton.ToolTip = tracker.IsPlaybackControlBlocked
             ? "Unavailable during automatic pause"
             : tracker.IsRunning
@@ -443,6 +1156,11 @@ public partial class MainWindow : Window
         InlinePauseIcon.Visibility = tracker.IsRunning
             ? Visibility.Visible
             : Visibility.Collapsed;
+
+        if (!isCompletionFlashing)
+        {
+            ApplyBaseAppearance();
+        }
 
         if (statsWindow?.IsVisible == true)
         {
@@ -523,16 +1241,41 @@ public partial class MainWindow : Window
 
     private void ApplyBaseAppearance()
     {
-        TrackerBorder.BorderBrush = isPointerOver ? hoverBorderBrush : normalBorderBrush;
+        var stateBrush = GetVisualStateBrush();
+        var stateBorderBrush = tracker.IsRunning
+            ? runningBorderBrush
+            : IsNotStarted()
+                ? idleBorderBrush
+                : stoppedBorderBrush;
+        TrackerBorder.BorderBrush = isPointerOver ? stateBrush : stateBorderBrush;
         TrackerBorder.Background = isPointerOver
-            ? hoverBackgroundBrush
+            ? tracker.IsRunning
+                ? runningHoverBackgroundBrush
+                : IsNotStarted()
+                    ? idleHoverBackgroundBrush
+                    : stoppedHoverBackgroundBrush
             : normalBackgroundBrush;
-        TrackerBorder.BorderThickness = new Thickness(isPointerOver ? 2 : 1);
-        TrackerShadow.Color = isPointerOver
-            ? hoverBorderBrush.Color
-            : Color.FromRgb(0x40, 0x48, 0x50);
-        TrackerShadow.BlurRadius = isPointerOver ? 15 : 10;
-        TrackerShadow.Opacity = isPointerOver ? 0.38 : 0.24;
+        TrackerBorder.BorderThickness = new Thickness(
+            isPointerOver ? 2 : tracker.IsRunning ? 1.5 : 1);
+        TrackerShadow.Color = stateBrush.Color;
+        TrackerShadow.BlurRadius = isPointerOver ? 15 : tracker.IsRunning ? 12 : 10;
+        TrackerShadow.Opacity = isPointerOver ? 0.34 : tracker.IsRunning ? 0.22 : 0.18;
+    }
+
+    private SolidColorBrush GetVisualStateBrush()
+    {
+        if (tracker.IsRunning)
+        {
+            return runningBrush;
+        }
+
+        return IsNotStarted() ? pausedBrush : stoppedBrush;
+    }
+
+    private bool IsNotStarted()
+    {
+        return !tracker.IsTimerCompleted &&
+            tracker.DisplayTime < TimeSpan.FromSeconds(1);
     }
 
     private void SetOpacity(int opacityPercent, bool persist)
@@ -583,9 +1326,11 @@ public partial class MainWindow : Window
 
     private void SaveWindowSize()
     {
-        var bounds = WindowState == WindowState.Normal
-            ? new Rect(Left, Top, Width, Height)
-            : RestoreBounds;
+        var bounds = isDockedToTaskbar && !undockedBounds.IsEmpty
+            ? undockedBounds
+            : WindowState == WindowState.Normal
+                ? new Rect(Left, Top, Width, Height)
+                : RestoreBounds;
 
         using var key = Registry.CurrentUser.CreateSubKey(SettingsRegistryPath);
         key.SetValue(WidthRegistryValue, (int)Math.Round(bounds.Width), RegistryValueKind.DWord);
@@ -601,20 +1346,50 @@ public partial class MainWindow : Window
             return;
         }
 
-        var trackerBounds = GetCurrentWindowBounds();
-        var trackerWidth = trackerBounds.Width;
-        statsWindow.Width = Math.Max(236, Math.Min(trackerWidth, 420));
+        var trackerHandle = new WindowInteropHelper(this).Handle;
+        var monitor = MonitorFromWindow(trackerHandle, MonitorDefaultToNearest);
+        var monitorInfo = new NativeMonitorInfo
+        {
+            Size = (uint)Marshal.SizeOf<NativeMonitorInfo>(),
+        };
+        if (trackerHandle == IntPtr.Zero ||
+            !GetWindowRect(trackerHandle, out var trackerBounds) ||
+            monitor == IntPtr.Zero ||
+            !GetMonitorInfo(monitor, ref monitorInfo))
+        {
+            return;
+        }
 
-        var workArea = GetCurrentMonitorWorkArea();
+        var dpiScale = GetDpiForWindow(trackerHandle) / 96d;
+        if (dpiScale <= 0)
+        {
+            dpiScale = 1;
+        }
+
+        var trackerWidth = (trackerBounds.Right - trackerBounds.Left) / dpiScale;
+        var statsWidth = Math.Max(236, Math.Min(trackerWidth, 420));
+        var statsWidthPixels = (int)Math.Round(statsWidth * dpiScale);
+        var statsHeightPixels = (int)Math.Round(statsWindow.Height * dpiScale);
         var layout = CompanionWindowLayout.ResolveStatsWindow(
-            ToLayoutRect(trackerBounds),
-            ToLayoutRect(workArea),
-            statsWindow.Width,
-            statsWindow.Height,
-            StatsWindowGap);
+            new LayoutRect(
+                trackerBounds.Left,
+                trackerBounds.Top,
+                trackerBounds.Right - trackerBounds.Left,
+                trackerBounds.Bottom - trackerBounds.Top),
+            new LayoutRect(
+                monitorInfo.WorkArea.Left,
+                monitorInfo.WorkArea.Top,
+                monitorInfo.WorkArea.Right - monitorInfo.WorkArea.Left,
+                monitorInfo.WorkArea.Bottom - monitorInfo.WorkArea.Top),
+            statsWidthPixels,
+            statsHeightPixels,
+            StatsWindowGap * dpiScale);
 
-        statsWindow.Left = layout.Left;
-        statsWindow.Top = layout.Top;
+        statsWindow.PositionPhysical(
+            (int)Math.Round(layout.Left),
+            (int)Math.Round(layout.Top),
+            statsWidthPixels,
+            statsHeightPixels);
         statsWindow.Topmost = true;
     }
 
@@ -649,7 +1424,7 @@ public partial class MainWindow : Window
             : defaultValue;
     }
 
-    private void OnBrowserActivityChanged(bool active)
+    private void OnBrowserActivityChanged(BrowserActivityKind activity)
     {
         if (isClosing || Dispatcher.HasShutdownStarted)
         {
@@ -663,10 +1438,70 @@ public partial class MainWindow : Window
                 return;
             }
 
-            browserReportsDistractingSite = active;
-            tracker.OnDistractingWebsiteChanged(socialMediaPauseEnabled && active);
+            browserActivity = activity;
+            ApplyBrowserPauseState();
             RefreshDisplay();
         });
+    }
+
+    private void ApplyBrowserPauseState()
+    {
+        var effectiveActivity = BrowserPausePolicy.ResolveActivity(
+            browserActivity,
+            continueOnYouTube,
+            IsForegroundYouTubeWindow());
+        var shouldPause = BrowserPausePolicy.ShouldPause(
+            socialMediaPauseEnabled,
+            continueOnYouTube,
+            effectiveActivity);
+        tracker.OnDistractingWebsiteChanged(shouldPause);
+    }
+
+    private void RefreshBrowserPauseForForeground()
+    {
+        if (!continueOnYouTube ||
+            browserActivity != BrowserActivityKind.UnknownDistracting ||
+            Environment.TickCount64 < nextBrowserForegroundCheck)
+        {
+            return;
+        }
+
+        nextBrowserForegroundCheck =
+            Environment.TickCount64 + BrowserForegroundCheckIntervalMilliseconds;
+        ApplyBrowserPauseState();
+    }
+
+    private static bool IsForegroundYouTubeWindow()
+    {
+        var foregroundWindow = GetForegroundWindow();
+        if (foregroundWindow == IntPtr.Zero)
+        {
+            return false;
+        }
+
+        _ = GetWindowThreadProcessId(foregroundWindow, out var processId);
+        if (processId == 0)
+        {
+            return false;
+        }
+
+        string processName;
+        try
+        {
+            using var process = Process.GetProcessById((int)processId);
+            processName = process.ProcessName;
+        }
+        catch (Exception exception)
+            when (exception is ArgumentException or InvalidOperationException)
+        {
+            return false;
+        }
+
+        var title = new StringBuilder(512);
+        _ = GetWindowText(foregroundWindow, title, title.Capacity);
+        return BrowserPausePolicy.IsForegroundYouTubeWindow(
+            processName,
+            title.ToString());
     }
 
     private void ShowBrowserExtensionSetup()
@@ -864,39 +1699,6 @@ public partial class MainWindow : Window
             (windowRect.Bottom - windowRect.Top) / dpiScale);
     }
 
-    private static LayoutRect ToLayoutRect(Rect rectangle) =>
-        new(
-            rectangle.Left,
-            rectangle.Top,
-            rectangle.Width,
-            rectangle.Height);
-
-    private Rect GetCurrentMonitorWorkArea()
-    {
-        var handle = new WindowInteropHelper(this).Handle;
-        var monitor = MonitorFromWindow(handle, MonitorDefaultToNearest);
-        var monitorInfo = new NativeMonitorInfo
-        {
-            Size = (uint)Marshal.SizeOf<NativeMonitorInfo>(),
-        };
-        if (monitor == IntPtr.Zero || !GetMonitorInfo(monitor, ref monitorInfo))
-        {
-            return SystemParameters.WorkArea;
-        }
-
-        var dpiScale = GetDpiForWindow(handle) / 96d;
-        if (dpiScale <= 0)
-        {
-            dpiScale = 1;
-        }
-
-        return new Rect(
-            monitorInfo.WorkArea.Left / dpiScale,
-            monitorInfo.WorkArea.Top / dpiScale,
-            (monitorInfo.WorkArea.Right - monitorInfo.WorkArea.Left) / dpiScale,
-            (monitorInfo.WorkArea.Bottom - monitorInfo.WorkArea.Top) / dpiScale);
-    }
-
     [DllImport("Wtsapi32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool WTSRegisterSessionNotification(
@@ -916,18 +1718,93 @@ public partial class MainWindow : Window
     private static extern bool GetWindowRect(IntPtr windowHandle, out WindowRect windowRect);
 
     [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(
+        IntPtr windowHandle,
+        out uint processId);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetWindowText(
+        IntPtr windowHandle,
+        StringBuilder text,
+        int maximumCount);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern IntPtr FindWindow(string className, string? windowName);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern IntPtr FindWindowEx(
+        IntPtr parentWindow,
+        IntPtr childAfter,
+        string className,
+        string? windowName);
+
+    private delegate bool EnumWindowsProcedure(
+        IntPtr windowHandle,
+        IntPtr parameter);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool EnumChildWindows(
+        IntPtr parentWindow,
+        EnumWindowsProcedure callback,
+        IntPtr parameter);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool IsWindowVisible(IntPtr windowHandle);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetWindowPos(
+        IntPtr windowHandle,
+        IntPtr insertAfter,
+        int x,
+        int y,
+        int width,
+        int height,
+        uint flags);
+
+    [DllImport("user32.dll")]
     private static extern uint GetDpiForWindow(IntPtr windowHandle);
+
+    [DllImport("shcore.dll")]
+    private static extern int GetDpiForMonitor(
+        IntPtr monitorHandle,
+        uint dpiType,
+        out uint horizontalDpi,
+        out uint verticalDpi);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetPackagesByPackageFamily(
+        string packageFamilyName,
+        ref uint packageCount,
+        IntPtr packageFullNames,
+        ref uint bufferLength,
+        IntPtr buffer);
 
     private const uint MonitorDefaultToNearest = 0x00000002;
 
     [DllImport("user32.dll")]
     private static extern IntPtr MonitorFromWindow(IntPtr windowHandle, uint flags);
 
+    [DllImport("user32.dll")]
+    private static extern IntPtr MonitorFromRect(
+        ref WindowRect rectangle,
+        uint flags);
+
     [DllImport("user32.dll", CharSet = CharSet.Auto)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool GetMonitorInfo(
         IntPtr monitorHandle,
         ref NativeMonitorInfo monitorInfo);
+
+    [DllImport("shell32.dll")]
+    private static extern uint SHAppBarMessage(
+        uint message,
+        ref AppBarData data);
 
     [StructLayout(LayoutKind.Sequential)]
     private struct FlashWindowInfo
@@ -946,6 +1823,17 @@ public partial class MainWindow : Window
         public WindowRect MonitorArea;
         public WindowRect WorkArea;
         public uint Flags;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct AppBarData
+    {
+        public uint Size;
+        public IntPtr WindowHandle;
+        public uint CallbackMessage;
+        public uint Edge;
+        public WindowRect Rectangle;
+        public IntPtr Parameter;
     }
 
     [StructLayout(LayoutKind.Sequential)]
